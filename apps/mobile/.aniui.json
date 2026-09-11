@@ -1,0 +1,95 @@
+{
+  "componentsDir": "src/components/ui",
+  "utilPath": "lib/utils.ts",
+  "theme": "default",
+  "style": "nativewind",
+  "tsx": true,
+  "sdkGeneration": "v5",
+  "installed": {
+    "button": {
+      "version": "0.5.0",
+      "hash": "7ace3617",
+      "addedAt": "2026-08-18T12:15:23.728Z"
+    },
+    "text": {
+      "version": "0.5.0",
+      "hash": "8dc09416",
+      "addedAt": "2026-08-18T12:39:25.129Z"
+    },
+    "bottom-sheet": {
+      "version": "0.5.0",
+      "hash": "6cac183e",
+      "addedAt": "2026-08-18T13:11:02.229Z"
+    },
+    "separator": {
+      "version": "0.5.0",
+      "hash": "ef82483f",
+      "addedAt": "2026-08-18T13:13:11.567Z"
+    },
+    "badge": {
+      "version": "0.5.0",
+      "hash": "122cc31e",
+      "addedAt": "2026-08-18T13:13:11.629Z"
+    },
+    "input": {
+      "version": "0.5.0",
+      "hash": "4a7db39a",
+      "addedAt": "2026-08-18T13:13:11.629Z"
+    },
+    "dropdown-menu": {
+      "version": "0.5.0",
+      "hash": "4ab589f1",
+      "addedAt": "2026-08-18T13:13:11.629Z"
+    },
+    "animate": {
+      "version": "0.5.0",
+      "hash": "ddacc252",
+      "addedAt": "2026-08-18T13:13:11.630Z"
+    },
+    "dialog": {
+      "version": "0.5.0",
+      "hash": "919f1c94",
+      "addedAt": "2026-08-18T13:13:11.630Z"
+    },
+    "card": {
+      "version": "0.5.0",
+      "hash": "6d53cdea",
+      "addedAt": "2026-08-18T13:13:11.631Z"
+    },
+    "avatar": {
+      "version": "0.5.0",
+      "hash": "57169bfb",
+      "addedAt": "2026-08-18T13:13:11.631Z"
+    },
+    "skeleton": {
+      "version": "0.5.0",
+      "hash": "f9eb06ba",
+      "addedAt": "2026-08-18T13:13:20.009Z"
+    },
+    "toast": {
+      "version": "0.5.0",
+      "hash": "dd130ccc",
+      "addedAt": "2026-08-18T13:13:20.016Z"
+    },
+    "tabs": {
+      "version": "0.5.0",
+      "hash": "d40ba44c",
+      "addedAt": "2026-08-18T13:13:20.016Z"
+    },
+    "switch": {
+      "version": "0.5.0",
+      "hash": "16545655",
+      "addedAt": "2026-08-18T13:13:20.017Z"
+    },
+    "radio-group": {
+      "version": "0.5.0",
+      "hash": "2965e941",
+      "addedAt": "2026-08-18T13:13:20.017Z"
+    },
+    "checkbox": {
+      "version": "0.5.0",
+      "hash": "74d8743a",
+      "addedAt": "2026-08-18T13:13:20.020Z"
+    }
+  }
+}

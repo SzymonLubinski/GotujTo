@@ -1,0 +1,15 @@
+{
+  "name": "@gotujto/convex",
+  "private": true,
+  "dependencies": {
+    "@gotujto/shared": "workspace:*",
+    "convex": "^1.41.0",
+    "convex-helpers": "^0.1.120"
+  },
+  "devDependencies": {
+    "@types/node": "^20.19.43"
+  },
+  "scripts": {
+    "dev": "convex dev"
+  }
+}

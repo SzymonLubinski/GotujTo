@@ -1,0 +1,14 @@
+{
+  "name": "@gotujto/shared",
+  "version": "0.0.0",
+  "private": true,
+  "exports": {
+    "./types/*": "./types/*.ts",
+    "./data/*": "./data/*.ts",
+    "./functions/getIngredientLabel": "./functions/getIngredientLabel.ts"
+  },
+  "dependencies": {
+    "@gotujto/convex": "workspace:*",
+    "convex": "^1.41.0"
+  }
+}
