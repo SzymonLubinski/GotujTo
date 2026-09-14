@@ -18,10 +18,7 @@ type AdShortItemProps = {
 
 const TEST_AD_UNIT = "/6355419/Travel/Europe/France/Paris";
 
-export default function AdShortItem({
-                                        index,
-                                        isNearby,
-                                    }: AdShortItemProps) {
+export default function AdShortItem({index, isNearby}: AdShortItemProps) {
     const reactId = useId();
     const slotId = `google-ad-${reactId.replace(/[^a-zA-Z0-9_-]/g, "")}`;
 

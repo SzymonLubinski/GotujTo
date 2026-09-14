@@ -15,10 +15,8 @@ type StoresSheetProps = {
 }
 
 export default function StoresSheet({ open, onOpenChange, selectedStores, onSelectedStoresChange }: StoresSheetProps) {
-    const [draftStores, setDraftStores] = useState<StoresT[]>(() => selectedStores.length === 0 ? [...stores] : selectedStores)
-
+    const [draftStores, setDraftStores] = useState<StoresT[]>(selectedStores);
     const allStoresSelected = draftStores.length === stores.length
-    const hasSelectedStores = draftStores.length > 0
 
     function handleStoreChange(store: StoresT, checked: boolean) {
         setDraftStores(currentStores => {
@@ -32,10 +30,10 @@ export default function StoresSheet({ open, onOpenChange, selectedStores, onSele
 
     function handleOpenChange(nextOpen: boolean) {
         if (nextOpen) {
-            setDraftStores(selectedStores.length === 0 ? [...stores] : selectedStores)
+            setDraftStores(selectedStores);
         }
 
-        onOpenChange(nextOpen)
+        onOpenChange(nextOpen);
     }
 
     function handleSelectAll() {
@@ -43,12 +41,8 @@ export default function StoresSheet({ open, onOpenChange, selectedStores, onSele
     }
 
     function handleApply() {
-        if (!hasSelectedStores) {
-            return
-        }
-
-        onSelectedStoresChange(allStoresSelected ? [] : draftStores)
-        onOpenChange(false)
+        onSelectedStoresChange(draftStores);
+        onOpenChange(false);
     }
 
     return (
@@ -84,12 +78,6 @@ export default function StoresSheet({ open, onOpenChange, selectedStores, onSele
                             )
                         })}
                     </div>
-
-                    {!hasSelectedStores && (
-                        <p className="mt-3 text-sm text-red-400">
-                            Wybierz przynajmniej jeden sklep.
-                        </p>
-                    )}
                 </div>
 
                 <SheetFooter className="grid grid-cols-2 gap-3 border-t border-white/10 px-6 pb-[calc(env(safe-area-inset-bottom)+1rem)] pt-4">
@@ -97,7 +85,7 @@ export default function StoresSheet({ open, onOpenChange, selectedStores, onSele
                         Wszystkie
                     </Button>
 
-                    <Button type="button" onClick={handleApply} disabled={!hasSelectedStores} className="h-12 rounded-full bg-lime-400 font-semibold text-black hover:bg-lime-300">
+                    <Button type="button" onClick={handleApply} className="h-12 rounded-full bg-lime-400 font-semibold text-black hover:bg-lime-300">
                         Zastosuj
                     </Button>
                 </SheetFooter>

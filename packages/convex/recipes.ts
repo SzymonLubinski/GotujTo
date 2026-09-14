@@ -736,32 +736,85 @@ export const getRecipesPaginated = query({
     args: {
         paginationOpts: paginationOptsValidator,
         excludedRecipeIds: v.array(v.id("recipes")),
+        randomSeed: v.string(),
+        createdBefore: v.number(),
     },
     handler: async (ctx, args) => {
-        const excludedRecipeIds = new Set(args.excludedRecipeIds);
-        const page = await ctx.db
+        const excludedRecipeIds =
+            new Set(args.excludedRecipeIds);
+
+        const allRecipes = await ctx.db
             .query("recipes")
-            .order("desc")
-            .paginate(args.paginationOpts);
-        const recipes = page.page.filter(recipe =>
-            !excludedRecipeIds.has(recipe._id),
+            .collect();
+
+        const orderedRecipes = allRecipes
+            .filter(recipe =>
+                recipe._creationTime <= args.createdBefore &&
+                !excludedRecipeIds.has(recipe._id),
+            )
+            .sort((first, second) => {
+                const firstScore = getSeededScore(
+                    args.randomSeed,
+                    first._id,
+                );
+
+                const secondScore = getSeededScore(
+                    args.randomSeed,
+                    second._id,
+                );
+
+                if (firstScore !== secondScore) {
+                    return firstScore - secondScore;
+                }
+
+                return first._id < second._id ? -1 : 1;
+            });
+
+        const parsedOffset = args.paginationOpts.cursor
+            ? Number.parseInt(
+                args.paginationOpts.cursor,
+                10,
+            )
+            : 0;
+
+        const offset =
+            Number.isSafeInteger(parsedOffset) &&
+            parsedOffset >= 0
+                ? parsedOffset
+                : 0;
+
+        const pageRecipes = orderedRecipes.slice(
+            offset,
+            offset + args.paginationOpts.numItems,
         );
-        const result = await Promise.all(
-            recipes.map(async recipe => {
-                const media = await getRecipeMedia(ctx, recipe);
+
+        const page = await Promise.all(
+            pageRecipes.map(async recipe => {
+                const media =
+                    await getRecipeMedia(ctx, recipe);
 
                 return {
-                    recipe: {...recipe, ...media},
+                    recipe: {
+                        ...recipe,
+                        ...media,
+                    },
                     source: "standard" as const,
-                    dealProductIds: [] as Id<"products">[],
-                    fridgeProductIds: [] as Id<"products">[],
+                    dealProductIds:
+                        [] as Id<"products">[],
+                    fridgeProductIds:
+                        [] as Id<"products">[],
                 };
             }),
         );
 
+        const nextOffset =
+            offset + pageRecipes.length;
+
         return {
-            ...page,
-            page: result,
+            page,
+            isDone:
+                nextOffset >= orderedRecipes.length,
+            continueCursor: String(nextOffset),
         };
     },
 });
@@ -918,3 +971,18 @@ export const getRecipesForSitemap = query({
         }));
     },
 });
+
+function getSeededScore(
+    seed: string,
+    recipeId: Id<"recipes">,
+) {
+    const value = `${seed}:${recipeId}`;
+    let hash = 2166136261;
+
+    for (let index = 0; index < value.length; index++) {
+        hash ^= value.charCodeAt(index);
+        hash = Math.imul(hash, 16777619);
+    }
+
+    return hash >>> 0;
+}

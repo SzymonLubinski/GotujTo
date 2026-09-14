@@ -1,6 +1,6 @@
 "use client";
 
-import {useRef, useState} from "react";
+import {useRef, useState, useEffect} from "react";
 import {useSearchParams} from "next/navigation";
 import {usePaginatedQuery, useQuery} from "convex/react";
 import {api} from "@gotujto/convex/_generated/api";
@@ -11,6 +11,11 @@ import {useShortFeed} from "@/lib/hooks/useShortFeed";
 
 const INITIAL_SHORTS_COUNT = 3;
 const LOAD_MORE_COUNT = 3;
+
+type FeedSession = {
+    randomSeed: string;
+    createdBefore: number;
+};
 
 export default function FridgeResultsPage() {
     const searchParams = useSearchParams();
@@ -40,16 +45,35 @@ export default function FridgeResultsPage() {
         item => item.recipe._id,
     );
 
+    const [feedSession, setFeedSession] =
+        useState<FeedSession | null>(null);
+
+    useEffect(() => {
+        setFeedSession({
+            randomSeed: crypto.randomUUID(),
+            createdBefore: Date.now(),
+        });
+    }, []);
+
     const {
         results,
+        status,
         loadMore,
     } = usePaginatedQuery(
         api.recipes.getRecipesPaginated,
-        productIds.length > 0
-            ? {excludedRecipeIds: uniqueRecipesIds}
+        productIds.length > 0 && feedSession
+            ? {
+                excludedRecipeIds:
+                uniqueRecipesIds,
+                randomSeed:
+                feedSession.randomSeed,
+                createdBefore:
+                feedSession.createdBefore,
+            }
             : "skip",
         {
-            initialNumItems: INITIAL_SHORTS_COUNT,
+            initialNumItems:
+            INITIAL_SHORTS_COUNT,
         },
     );
 

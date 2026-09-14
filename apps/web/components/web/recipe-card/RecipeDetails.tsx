@@ -8,7 +8,7 @@ import {ToggleGroup, ToggleGroupItem} from "@/components/ui/toggle-group";
 import RecipeProducts from "@/components/web/recipe-card/RecipeProducts";
 import RecipeSteps from "@/components/web/recipe-card/RecipeSteps";
 import {RecipeHeader} from "@/components/web/recipe-card/RecipeHeader";
-import {RecipeHeaderNavigation} from "@/components/web/recipe-card/RecipeNav";
+import {RecipeHeaderNavigation} from "@/components/web/recipe-card/RecipeHeaderNavigation";
 import {type RecipeResultsType} from "@gotujto/shared/types/result-type";
 
 type UnitSystem = "metric" | "customary";
