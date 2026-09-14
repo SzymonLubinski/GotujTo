@@ -10,6 +10,7 @@ import type {FunctionArgs} from "convex/server";
 import {revalidatePath} from "next/cache";
 import {DeleteObjectCommand} from "@aws-sdk/client-s3";
 import {r2} from "@/lib/cloud/r2";
+import {Id} from "@gotujto/convex/_generated/dataModel";
 
 type CreateRecipeValues = Omit<
     FunctionArgs<typeof api.recipes.createRecipe>,
@@ -20,7 +21,6 @@ type UpdateRecipeValues = Omit<
     FunctionArgs<typeof api.recipes.updateRecipe>,
     "adminSecret"
 >;
-
 function getAdminSecret() {
     const adminSecret =
         process.env.ADMIN_CONVEX_SECRET;
