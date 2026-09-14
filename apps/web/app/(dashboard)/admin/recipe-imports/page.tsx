@@ -12,6 +12,7 @@ import {Button} from "@/components/ui/button";
 import {Card, CardContent, CardHeader, CardTitle} from "@/components/ui/card";
 import {Input} from "@/components/ui/input";
 import {Textarea} from "@/components/ui/textarea";
+import {saveDraftAction} from "@/app/actions";
 
 type ReviewStatus = "raw" | "postponed" | "error";
 type ImportResult = NonNullable<FunctionReturnType<typeof api.recipeImports.getNextForReview>>;
@@ -60,7 +61,37 @@ export default function RecipeImportsPage() {
     async function persistDraft() {
         if (!draft) return;
 
-        await saveDraft({
+        // await saveDraft({
+        //     recipeImportId: draft.recipe._id,
+        //     recipe: {
+        //         name: draft.recipe.name,
+        //         description: draft.recipe.description,
+        //         cookingMinutes: draft.recipe.cookingMinutes,
+        //         servings: draft.recipe.servings,
+        //         authorName: draft.recipe.authorName,
+        //         diets: draft.recipe.diets,
+        //         types: draft.recipe.types,
+        //         occasions: draft.recipe.occasions,
+        //     },
+        //     ingredients: draft.ingredients.map(ingredient => ({
+        //         ingredientImportId: ingredient._id,
+        //         translatedProductName: ingredient.translatedProductName,
+        //         productId: ingredient.productId,
+        //         substitutionGroup: ingredient.substitutionGroup,
+        //         groupLevel: ingredient.groupLevel,
+        //         metricUnit: ingredient.metricUnit,
+        //         metricQuantity: ingredient.metricQuantity,
+        //         customaryUnit: ingredient.customaryUnit,
+        //         customaryQuantity: ingredient.customaryQuantity,
+        //         optional: ingredient.optional,
+        //     })),
+        //     steps: draft.steps.map(step => ({
+        //         stepImportId: step._id,
+        //         stepNum: step.stepNum,
+        //         description: step.description,
+        //     })),
+        // });
+        await saveDraftAction({
             recipeImportId: draft.recipe._id,
             recipe: {
                 name: draft.recipe.name,

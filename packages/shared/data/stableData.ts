@@ -52,10 +52,20 @@ export type ProductT = (typeof productTypes)[number]
 export const dietTypes = [
     "vege",
     "vegan",
+    "pescatarian",
     "keto",
-    "gluten_free"
+    "gluten_free",
+    "lactose_free",
 ] as const;
 export type DietT = (typeof dietTypes)[number]
+export const dietLabels: Record<DietT, string> = {
+    vege: "Wegetariańska",
+    vegan: "Wegańska",
+    pescatarian: "Pescowegetariańska",
+    keto: "Ketogeniczna",
+    gluten_free: "Bezglutenowa",
+    lactose_free: "Bez laktozy",
+};
 
 export const mealTypes = [
     "śniadanie",
@@ -78,8 +88,9 @@ export const occasions = [
     "boże narodzenie",
     "sylwester",
     "wielkanoc",
-    "rodzinny posiłek"
-
+    "rodzinny posiłek",
+    "na co dzień",
+    "impreza"
 ] as const;
 export type OccasionT = (typeof occasions)[number]
 
@@ -109,6 +120,12 @@ export const customaryUnits = [
     "plaster",
     "pęczek",
     "garść",
+    "kostka",
+    "butelka",
+    "kawałek",
+    "gałązka",
+    "puszka",
+    "słoik"
 ] as const;
 
 export const shortsSource = [

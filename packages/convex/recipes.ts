@@ -1,17 +1,25 @@
 // noinspection JSUnusedGlobalSymbols
 
-import {mutation, query, type QueryCtx} from "./_generated/server";
+import {mutation, query, MutationCtx, type QueryCtx} from "./_generated/server";
 import {ConvexError, v} from "convex/values";
 import {paginationOptsValidator} from "convex/server";
 import {filter} from "convex-helpers/server/filter";
 import {type Doc, type Id} from "./_generated/dataModel";
 import {customaryUnits, dietTypes, mealTypes, metricUnits, occasions, stores} from "../shared/data/stableData";
+import {requireAdmin} from "./lib/requireAdmin";
 
 const DEFAULT_DEALS_LIMIT = 10;
 const MAX_DEALS_LIMIT = 30;
 const DEFAULT_FRIDGE_LIMIT = 20;
 const MAX_FRIDGE_LIMIT = 50;
 const CANDIDATE_MULTIPLIER = 3;
+const MAX_IMAGE_SIZE = 10 * 1024 * 1024;
+
+const allowedImageTypes = new Set([
+    "image/jpeg",
+    "image/png",
+    "image/webp",
+]);
 
 const productObjectV = v.object({
     productId: v.id("products"),
@@ -57,13 +65,53 @@ type RecipeMatch = {
     matchPercentage: number;
 };
 
+export const searchRecipesForAdmin = query({
+    args: {
+        adminSecret: v.string(),
+        phrase: v.string(),
+        limit: v.optional(v.number()),
+    },
+    handler: async (ctx, args) => {
+        requireAdmin(args.adminSecret);
+
+        const phrase = args.phrase.trim();
+
+        if (phrase.length < 2) {
+            return [];
+        }
+
+        const limit = Math.min(
+            Math.max(
+                Math.floor(args.limit ?? 50),
+                1,
+            ),
+            50,
+        );
+
+        return await ctx.db
+            .query("recipes")
+            .withSearchIndex(
+                "by_name_prefix",
+                query =>
+                    query.search("name", phrase),
+            )
+            .take(limit);
+    },
+});
+
 export const createRecipe = mutation({
     args: {
+        adminSecret: v.string(),
         step1: recipeFieldsV,
         step2: ingredientGroupsV,
         step3: recipeStepsV,
     },
     handler: async (ctx, args) => {
+        requireAdmin(args.adminSecret);
+        await validateStoredImages(
+            ctx,
+            args.step1.images,
+        );
         try {
             const recipeId = await ctx.db.insert("recipes", {
                 authorId: "David",
@@ -115,11 +163,17 @@ export const createRecipe = mutation({
 export const updateRecipe = mutation({
     args: {
         recipeId: v.id("recipes"),
+        adminSecret: v.string(),
         step1: recipeFieldsV,
         step2: ingredientGroupsV,
         step3: recipeStepsV,
     },
     handler: async (ctx, args) => {
+        requireAdmin(args.adminSecret);
+        await validateStoredImages(
+            ctx,
+            args.step1.images,
+        );
         const recipe = await ctx.db.get(args.recipeId);
 
         if (!recipe) {
@@ -166,11 +220,49 @@ export const updateRecipe = mutation({
 });
 
 export const generateImageUploadUrl = mutation({
-    args: {},
-    handler: async ctx => {
+    args: {
+        adminSecret: v.string()
+    },
+    handler: async (ctx, args) => {
+        requireAdmin(args.adminSecret);
         return await ctx.storage.generateUploadUrl();
     },
 });
+
+async function validateStoredImages(
+    ctx: MutationCtx,
+    imageIds: Id<"_storage">[],
+) {
+    for (const storageId of imageIds) {
+        const metadata = await ctx.db.system.get(
+            "_storage",
+            storageId,
+        );
+
+        if (!metadata) {
+            throw new ConvexError(
+                "Nie znaleziono przesłanego zdjęcia.",
+            );
+        }
+
+        if (metadata.size > MAX_IMAGE_SIZE) {
+            throw new ConvexError(
+                "Zdjęcie może mieć maksymalnie 10 MB.",
+            );
+        }
+
+        if (
+            !metadata.contentType ||
+            !allowedImageTypes.has(
+                metadata.contentType,
+            )
+        ) {
+            throw new ConvexError(
+                "Dozwolone formaty zdjęć: JPG, PNG i WebP.",
+            );
+        }
+    }
+}
 
 export const getRecipeForEditing = query({
     args: {
@@ -812,3 +904,17 @@ function normalizeLimit(requestedLimit: number | undefined, defaultLimit: number
         maximumLimit,
     );
 }
+
+export const getRecipesForSitemap = query({
+    args: {},
+    handler: async ctx => {
+        const recipes = await ctx.db
+            .query("recipes")
+            .collect();
+
+        return recipes.map(recipe => ({
+            recipeId: recipe._id,
+            createdAt: recipe._creationTime,
+        }));
+    },
+});

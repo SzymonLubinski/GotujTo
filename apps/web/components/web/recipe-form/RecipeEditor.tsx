@@ -23,6 +23,7 @@ import {dietTypes, mealTypes, occasions} from "@gotujto/shared/data/stableData";
 import {recipeFormSchema, type RecipeFormValues} from "@/lib/schemas/recipe";
 import {uploadImages} from "@/lib/cloud/uploadImages";
 import {uploadVideo} from "@/lib/cloud/uploadVideo";
+import {createRecipe, updateRecipe} from "@/app/actions";
 
 type RecipeEditorProps = {
     mode: "create" | "edit";
@@ -50,8 +51,6 @@ export default function RecipeEditor({mode, recipeId}: RecipeEditorProps) {
     const [editedSection, setEditedSection] = useState<"media" | "details" | "ingredients" | "steps" | null>(null);
     const [unitSystem, setUnitSystem] = useState<"metric" | "customary">("metric");
     const initializedRecipeRef = useRef<Id<"recipes"> | null>(null);
-    const createRecipe = useMutation(api.recipes.createRecipe);
-    const updateRecipe = useMutation(api.recipes.updateRecipe);
     const editData = useQuery(
         api.recipes.getRecipeForEditing,
         mode === "edit" && recipeId ? {recipeId} : "skip",
@@ -79,14 +78,18 @@ export default function RecipeEditor({mode, recipeId}: RecipeEditorProps) {
                         return image.storageId;
                     }
 
-                    const [imageId] = await uploadImages([{
-                        id: image.id,
-                        file: image.file,
-                        previewUrl: image.previewUrl,
-                    }]);
+                    const [imageId] = await uploadImages([
+                        {
+                            id: image.id,
+                            file: image.file,
+                            previewUrl: image.previewUrl,
+                        },
+                    ]);
 
                     if (!imageId) {
-                        throw new Error("Serwer nie zwrócił identyfikatora zdjęcia");
+                        throw new Error(
+                            "Serwer nie zwrócił identyfikatora zdjęcia",
+                        );
                     }
 
                     return imageId;
@@ -95,30 +98,62 @@ export default function RecipeEditor({mode, recipeId}: RecipeEditorProps) {
 
             const videoKey = values.step1.video
                 ? "file" in values.step1.video
-                    ? await uploadVideo(values.step1.video.file)
+                    ? await uploadVideo(
+                        values.step1.video.file,
+                    )
                     : values.step1.video.videoKey
                 : undefined;
 
-            const {images, video, ...recipeFields} = values.step1;
+            const {
+                images,
+                video,
+                ...recipeFields
+            } = values.step1;
+
             const step2 = values.step2.map(group => ({
                 main: withoutProductName(group.main),
-                substitutes: group.substitutes.map(withoutProductName),
+                substitutes: group.substitutes.map(
+                    withoutProductName,
+                ),
             }));
+
             const payload = {
-                step1: {...recipeFields, images: imageIds, videoKey},
+                step1: {
+                    ...recipeFields,
+                    images: imageIds,
+                    videoKey,
+                },
                 step2,
-                step3: values.step3.map(({description}) => ({description})),
+                step3: values.step3.map(
+                    ({description}) => ({
+                        description,
+                    }),
+                ),
             };
 
-            const savedRecipeId = mode === "edit" && recipeId
-                ? await updateRecipe({recipeId, ...payload})
-                : await createRecipe(payload);
+            const savedRecipeId =
+                mode === "edit" && recipeId
+                    ? await updateRecipe({
+                        recipeId,
+                        ...payload,
+                    })
+                    : await createRecipe(payload);
 
-            toast.success(mode === "edit" ? "Zmiany zostały zapisane" : "Przepis został dodany");
+            toast.success(
+                mode === "edit"
+                    ? "Zmiany zostały zapisane"
+                    : "Przepis został dodany",
+            );
+
             router.push(`/recipe/${savedRecipeId}`);
         } catch (error) {
             console.error("RecipeEditor:", error);
-            toast.error("Nie udało się zapisać przepisu");
+
+            toast.error(
+                error instanceof Error
+                    ? error.message
+                    : "Nie udało się zapisać przepisu",
+            );
         }
     }
 

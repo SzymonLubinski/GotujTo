@@ -2,6 +2,7 @@ import { fetchMutation } from "convex/nextjs";
 import { api } from "@gotujto/convex/_generated/api";
 import { RecipeImageValue } from "@/lib/schemas/recipe";
 import { Id } from "@gotujto/convex/_generated/dataModel";
+import {generateImageUploadUrlAction} from "@/app/actions";
 
 
 export async function uploadImages(
@@ -10,10 +11,10 @@ export async function uploadImages(
     const storageIds: Id<"_storage">[] = [];
 
     for (const image of images) {
-        const uploadUrl = await fetchMutation(
-            api.recipes.generateImageUploadUrl,
-            {},
-        );
+        const uploadUrl = await generateImageUploadUrlAction({
+            contentType: image.file.type,
+            size: image.file.size,
+        });
 
         const uploadResponse = await fetch(uploadUrl, {
             method: "POST",

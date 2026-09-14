@@ -4,10 +4,12 @@ import {internalMutation, mutation, query} from "./_generated/server";
 import {v} from "convex/values";
 import {internal} from "./_generated/api";
 import {stores} from "../shared/data/stableData"
+import {requireAdmin} from "./lib/requireAdmin";
 
 
 export const createDeals = mutation({
     args: {
+        adminSecret: v.string(),
         deals: v.array(v.object({
             productId: v.id("products"),
             store: v.union(...stores.map((store) => v.literal(store))),
@@ -19,6 +21,7 @@ export const createDeals = mutation({
         }))
     },
     handler: async (ctx, args) => {
+        requireAdmin(args.adminSecret);
         for (const deal of args.deals) {
             const dealId = await ctx.db.insert("deals", deal);
             await ctx.scheduler.runAt(

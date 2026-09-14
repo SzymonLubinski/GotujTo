@@ -1,20 +1,9 @@
 import {v} from "convex/values";
-import {
-    action,
-    internalMutation,
-    internalQuery,
-    mutation,
-    query,
-} from "./_generated/server";
+import {action, internalMutation, internalQuery, mutation, query, type MutationCtx} from "./_generated/server";
 import {internal} from "./_generated/api";
 import {type Doc, type Id} from "./_generated/dataModel";
-import {
-    customaryUnits,
-    dietTypes,
-    mealTypes,
-    metricUnits,
-    occasions,
-} from "../shared/data/stableData";
+import {customaryUnits, dietTypes, mealTypes, metricUnits, occasions} from "../shared/data/stableData";
+import {requireAdmin} from "./lib/requireAdmin";
 
 const reviewStatus = v.union(
     v.literal("raw"),
@@ -114,42 +103,100 @@ export const getNextForReview = query({
 
 export const saveDraft = mutation({
     args: {
+        adminSecret: v.string(),
         recipeImportId: v.id("recipeImports"),
         recipe: recipeDraft,
         ingredients: v.array(ingredientDraft),
         steps: v.array(stepDraft),
     },
     handler: async (ctx, args) => {
-        const recipeImport = await ctx.db.get(args.recipeImportId);
+        requireAdmin(args.adminSecret);
+
+        const recipeImport = await ctx.db.get(
+            args.recipeImportId,
+        );
 
         if (!recipeImport) {
-            throw new Error("Nie znaleziono importowanego przepisu.");
+            throw new Error(
+                "Nie znaleziono importowanego przepisu.",
+            );
         }
 
         if (recipeImport.status === "success") {
-            throw new Error("Ten przepis został już zatwierdzony.");
+            throw new Error(
+                "Ten przepis został już zatwierdzony.",
+            );
         }
 
-        const ingredientDocuments = await Promise.all(
-            args.ingredients.map(ingredient =>
-                ctx.db.get(ingredient.ingredientImportId),
-            ),
-        );
-        const stepDocuments = await Promise.all(
-            args.steps.map(step => ctx.db.get(step.stepImportId)),
+        await requireUniqueRecipeImport(
+            ctx,
+            recipeImport,
         );
 
-        if (ingredientDocuments.some(
+        const ingredientIds = args.ingredients.map(
             ingredient =>
-                !ingredient || ingredient.recipeImportId !== args.recipeImportId,
-        )) {
-            throw new Error("Co najmniej jeden składnik nie należy do tego importu.");
+                ingredient.ingredientImportId,
+        );
+
+        if (
+            new Set(ingredientIds).size !==
+            ingredientIds.length
+        ) {
+            throw new Error(
+                "Lista zawiera powtórzone składniki.",
+            );
         }
 
-        if (stepDocuments.some(
-            step => !step || step.recipeImportId !== args.recipeImportId,
-        )) {
-            throw new Error("Co najmniej jeden krok nie należy do tego importu.");
+        const stepIds = args.steps.map(
+            step => step.stepImportId,
+        );
+
+        if (
+            new Set(stepIds).size !== stepIds.length
+        ) {
+            throw new Error(
+                "Lista zawiera powtórzone kroki.",
+            );
+        }
+
+        const ingredientDocuments =
+            await Promise.all(
+                ingredientIds.map(id =>
+                    ctx.db.get(id),
+                ),
+            );
+
+        const stepDocuments =
+            await Promise.all(
+                stepIds.map(id =>
+                    ctx.db.get(id),
+                ),
+            );
+
+        if (
+            ingredientDocuments.some(
+                ingredient =>
+                    !ingredient ||
+                    ingredient.recipeImportId !==
+                    args.recipeImportId,
+            )
+        ) {
+            throw new Error(
+                "Co najmniej jeden składnik nie należy do tego importu.",
+            );
+        }
+
+        if (
+            stepDocuments.some(
+                step =>
+                    !step ||
+                    step.recipeImportId !==
+                    args.recipeImportId,
+            )
+        ) {
+            throw new Error(
+                "Co najmniej jeden krok nie należy do tego importu.",
+            );
         }
 
         await ctx.db.patch(args.recipeImportId, {
@@ -158,19 +205,39 @@ export const saveDraft = mutation({
             updatedAt: Date.now(),
         });
 
-        await Promise.all(args.ingredients.map(ingredient => {
-            const {ingredientImportId, ...values} = ingredient;
+        await Promise.all(
+            args.ingredients.map(ingredient => {
+                const {
+                    ingredientImportId,
+                    ...values
+                } = ingredient;
 
-            return ctx.db.patch(ingredientImportId, {
-                ...values,
-                status: values.productId === null ? "needsReview" : "matched",
-            });
-        }));
+                return ctx.db.patch(
+                    ingredientImportId,
+                    {
+                        ...values,
+                        status:
+                            values.productId === null
+                                ? "needsReview"
+                                : "matched",
+                    },
+                );
+            }),
+        );
 
-        await Promise.all(args.steps.map(step => {
-            const {stepImportId, ...values} = step;
-            return ctx.db.patch(stepImportId, values);
-        }));
+        await Promise.all(
+            args.steps.map(step => {
+                const {
+                    stepImportId,
+                    ...values
+                } = step;
+
+                return ctx.db.patch(
+                    stepImportId,
+                    values,
+                );
+            }),
+        );
     },
 });
 
@@ -237,7 +304,11 @@ export const finalizeApproval = internalMutation({
         if (!recipeImport) {
             throw new Error("Nie znaleziono importowanego przepisu.");
         }
-
+        await requireUniqueRecipeImport(
+            ctx,
+            recipeImport,
+        );
+        
         if (recipeImport.status === "success" && recipeImport.targetRecipeId) {
             return {
                 recipeId: recipeImport.targetRecipeId,
@@ -284,7 +355,7 @@ export const finalizeApproval = internalMutation({
             diets: recipe.diets,
             types: recipe.types,
             occasions: recipe.occasions,
-            authorName: "TheMealDB"
+            authorName: recipe.authorName,
         });
 
         await Promise.all(completeIngredients.map(ingredient =>
@@ -659,3 +730,27 @@ export const removeIngredient = mutation({
         });
     },
 });
+
+async function requireUniqueRecipeImport(
+    ctx: MutationCtx,
+    recipeImport: Doc<"recipeImports">,
+) {
+    const matchingImports = await ctx.db
+        .query("recipeImports")
+        .withIndex("by_source_externalId", index =>
+            index
+                .eq("source", recipeImport.source)
+                .eq("externalId", recipeImport.externalId),
+        )
+        .collect();
+
+    const duplicate = matchingImports.find(
+        item => item._id !== recipeImport._id,
+    );
+
+    if (duplicate) {
+        throw new Error(
+            `Przepis ${recipeImport.externalId} został już zaimportowany. Duplikat: ${duplicate._id}.`,
+        );
+    }
+}

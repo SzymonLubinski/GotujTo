@@ -64,6 +64,14 @@ export default function DashboardNavbar() {
                                 <CookingPot/>
                             </DropdownMenuShortcut>
                         </DropdownMenuItem>
+                        <DropdownMenuItem>
+                            <Link className={buttonVariants({variant: "ghost"})} href="/admin/recipes">
+                                Edycja przepisów
+                            </Link>
+                            <DropdownMenuShortcut>
+                                <CookingPot/>
+                            </DropdownMenuShortcut>
+                        </DropdownMenuItem>
                     </DropdownMenuGroup>
                 </DropdownMenuContent>
             </DropdownMenu>

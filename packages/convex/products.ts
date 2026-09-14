@@ -3,6 +3,7 @@
 import {mutation, query} from "./_generated/server";
 import {v} from "convex/values";
 import {productTypes} from "../shared/data/stableData"
+import {requireAdmin} from "./lib/requireAdmin";
 
 export const checkProductExists = query({
     args: { name: v.string() },
@@ -18,11 +19,13 @@ export const checkProductExists = query({
 
 export const createProduct = mutation({
     args: {
+        adminSecret: v.string(),
         name: v.string(),
         image: v.optional(v.id("_storage")),
         type: v.union(...productTypes.map((type) => v.literal(type)))
     },
     handler: async (ctx, args) => {
+        requireAdmin(args.adminSecret);
         return await ctx.db.insert("products", {
             name: args.name,
             image: args.image,

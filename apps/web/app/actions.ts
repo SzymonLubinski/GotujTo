@@ -5,8 +5,34 @@ import {productSchema} from "@/lib/schemas/product";
 import {fetchMutation, fetchQuery} from "convex/nextjs";
 import {api} from "@gotujto/convex/_generated/api";
 import {dealsFormSchema, DealsFormValues} from "@/lib/schemas/deals";
+import {requireAdminRequest} from "@/lib/auth/requireAdminRequest";
+import type {FunctionArgs} from "convex/server";
+
+type CreateRecipeValues = Omit<
+    FunctionArgs<typeof api.recipes.createRecipe>,
+    "adminSecret"
+>;
+
+type UpdateRecipeValues = Omit<
+    FunctionArgs<typeof api.recipes.updateRecipe>,
+    "adminSecret"
+>;
+
+function getAdminSecret() {
+    const adminSecret =
+        process.env.ADMIN_CONVEX_SECRET;
+
+    if (!adminSecret) {
+        throw new Error(
+            "Brak zmiennej ADMIN_CONVEX_SECRET.",
+        );
+    }
+
+    return adminSecret;
+}
 
 export async function addProductAction(value: z.infer<typeof productSchema>) {
+    await requireAdminRequest();
     try {
         const parsed = productSchema.safeParse(value);
         if (!parsed.success) {
@@ -19,6 +45,7 @@ export async function addProductAction(value: z.infer<typeof productSchema>) {
         }
 
         await fetchMutation(api.products.createProduct, {
+            adminSecret: process.env.ADMIN_CONVEX_SECRET,
             name: value.name.toLowerCase(),
             type: value.type,
         })
@@ -30,6 +57,7 @@ export async function addProductAction(value: z.infer<typeof productSchema>) {
 }
 
 export async function addDealsAction(value: DealsFormValues) {
+    await requireAdminRequest();
     try {
         const parsed = dealsFormSchema.safeParse(value);
         if (!parsed.success) {
@@ -45,14 +73,116 @@ export async function addDealsAction(value: DealsFormValues) {
             endsAt: new Date(item.endsAt).getTime(),
             lowerBy: item.regularPrice = item.dealPrice,
         }))
-        await fetchMutation(api.deals.createDeals, {deals: data});
+        await fetchMutation(api.deals.createDeals, {
+            adminSecret: process.env.ADMIN_CONVEX_SECRET,
+            deals: data
+        });
 
         return {success: true}
     } catch (error) {
-        console.error("addRecipeAction:", error)
+        console.error("dodanie promocji:", error)
         return {
             success: false,
-            error: "Nie udało się dodać przepisu",
+            error: "błąd w procesie dodania promocji",
         }
     }
+}
+
+export async function createRecipe(value: CreateRecipeValues,) {
+    await requireAdminRequest();
+
+    try {
+        return await fetchMutation(
+            api.recipes.createRecipe,
+            {
+                ...value,
+                adminSecret: getAdminSecret(),
+            },
+        );
+    } catch (error) {
+        console.error("createRecipe:", error);
+        throw new Error(
+            "Nie udało się dodać przepisu.",
+        );
+    }
+}
+
+export async function updateRecipe(value: UpdateRecipeValues,) {
+    await requireAdminRequest();
+
+    try {
+        return await fetchMutation(
+            api.recipes.updateRecipe,
+            {
+                ...value,
+                adminSecret: getAdminSecret(),
+            },
+        );
+    } catch (error) {
+        console.error("updateRecipe:", error);
+        throw new Error(
+            "Nie udało się zaktualizować przepisu.",
+        );
+    }
+}
+
+const MAX_IMAGE_SIZE = 10 * 1024 * 1024;
+
+const allowedImageTypes = new Set([
+    "image/jpeg",
+    "image/png",
+    "image/webp",
+]);
+
+type ImageUploadInput = {
+    contentType: string;
+    size: number;
+};
+
+export async function generateImageUploadUrlAction({contentType, size}: ImageUploadInput) {
+    await requireAdminRequest();
+
+    if (!allowedImageTypes.has(contentType)) {
+        throw new Error("Dozwolone formaty: JPG, PNG i WebP.");
+    }
+
+    if (
+        !Number.isSafeInteger(size) ||
+        size <= 0 ||
+        size > MAX_IMAGE_SIZE
+    ) {
+        throw new Error("Zdjęcie może mieć maksymalnie 10 MB.");
+    }
+
+    return await fetchMutation(
+        api.recipes.generateImageUploadUrl,
+        {
+            adminSecret: getAdminSecret(),
+        },
+    );
+}
+
+type SaveDraftArgs = Omit<
+    FunctionArgs<
+        typeof api.recipeImports.saveDraft
+    >,
+    "adminSecret"
+>;
+
+export async function saveDraftAction(
+    args: SaveDraftArgs,
+) {
+    await requireAdminRequest();
+
+    await fetchMutation(
+        api.recipeImports.saveDraft,
+        {
+            ...args,
+            adminSecret: getAdminSecret(),
+        },
+    );
+
+    return {
+        success: true,
+    };
 }
