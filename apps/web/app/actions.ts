@@ -7,6 +7,9 @@ import {api} from "@gotujto/convex/_generated/api";
 import {dealsFormSchema, DealsFormValues} from "@/lib/schemas/deals";
 import {requireAdminRequest} from "@/lib/auth/requireAdminRequest";
 import type {FunctionArgs} from "convex/server";
+import {revalidatePath} from "next/cache";
+import {DeleteObjectCommand} from "@aws-sdk/client-s3";
+import {r2} from "@/lib/cloud/r2";
 
 type CreateRecipeValues = Omit<
     FunctionArgs<typeof api.recipes.createRecipe>,
@@ -185,4 +188,34 @@ export async function saveDraftAction(
     return {
         success: true,
     };
+}
+
+export async function deleteRecipeAction(recipeId: Id<"recipes">) {
+    await requireAdminRequest();
+
+    const result = await fetchMutation(api.recipes.deleteRecipe, {
+        recipeId,
+        adminSecret: getAdminSecret(),
+    });
+
+    const bucketName = process.env.R2_BUCKET_NAME;
+
+    if (result.videoKey && bucketName) {
+        try {
+            await r2.send(
+                new DeleteObjectCommand({
+                    Bucket: bucketName,
+                    Key: result.videoKey,
+                }),
+            );
+        } catch (error) {
+            console.error("Nie udało się usunąć filmu z R2:", error);
+        }
+    }
+
+    revalidatePath("/");
+    revalidatePath("/admin/recipes");
+    revalidatePath(`/recipe/${recipeId}`);
+
+    return {success: true};
 }

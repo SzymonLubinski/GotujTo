@@ -986,3 +986,46 @@ function getSeededScore(
 
     return hash >>> 0;
 }
+
+export const deleteRecipe = mutation({
+    args: {
+        recipeId: v.id("recipes"),
+        adminSecret: v.string(),
+    },
+    handler: async (ctx, args) => {
+        requireAdmin(args.adminSecret);
+
+        const recipe = await ctx.db.get(args.recipeId);
+
+        if (!recipe) {
+            throw new ConvexError({
+                code: "RECIPE_NOT_FOUND",
+                message: "Nie znaleziono przepisu.",
+            });
+        }
+
+        const [ingredients, steps] = await Promise.all([
+            ctx.db
+                .query("ingredients")
+                .withIndex("by_recipeId", index => index.eq("recipeId", args.recipeId))
+                .collect(),
+            ctx.db
+                .query("steps")
+                .withIndex("by_recipeId", index => index.eq("recipeId", args.recipeId))
+                .collect(),
+        ]);
+
+        await Promise.all([
+            ...ingredients.map(ingredient => ctx.db.delete(ingredient._id)),
+            ...steps.map(step => ctx.db.delete(step._id)),
+            ...recipe.images.map(imageId => ctx.storage.delete(imageId)),
+        ]);
+
+        await ctx.db.delete(args.recipeId);
+
+        return {
+            recipeId: args.recipeId,
+            videoKey: recipe.videoKey ?? null,
+        };
+    },
+});

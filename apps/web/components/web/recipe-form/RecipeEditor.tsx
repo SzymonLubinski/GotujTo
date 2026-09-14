@@ -3,10 +3,10 @@
 import {useEffect, useRef, useState, type ReactNode} from "react";
 import {FormProvider, useForm} from "react-hook-form";
 import {zodResolver} from "@hookform/resolvers/zod";
-import {useMutation, useQuery} from "convex/react";
+import {useQuery} from "convex/react";
 import {useRouter} from "next/navigation";
 import Image from "next/image";
-import {ArrowLeft, Clock, Loader2, Pencil, Save, Users, X} from "lucide-react";
+import {ArrowLeft, Clock, Loader2, Pencil, Save, Trash2, Users, X} from "lucide-react";;
 import {toast} from "sonner";
 import {api} from "@gotujto/convex/_generated/api";
 import {type Id} from "@gotujto/convex/_generated/dataModel";
@@ -23,7 +23,7 @@ import {dietTypes, mealTypes, occasions} from "@gotujto/shared/data/stableData";
 import {recipeFormSchema, type RecipeFormValues} from "@/lib/schemas/recipe";
 import {uploadImages} from "@/lib/cloud/uploadImages";
 import {uploadVideo} from "@/lib/cloud/uploadVideo";
-import {createRecipe, updateRecipe} from "@/app/actions";
+import {createRecipe, deleteRecipeAction, updateRecipe} from "@/app/actions";
 
 type RecipeEditorProps = {
     mode: "create" | "edit";
@@ -48,6 +48,7 @@ const emptyValues: RecipeFormValues = {
 
 export default function RecipeEditor({mode, recipeId}: RecipeEditorProps) {
     const router = useRouter();
+    const [isDeleting, setIsDeleting] = useState(false);
     const [editedSection, setEditedSection] = useState<"media" | "details" | "ingredients" | "steps" | null>(null);
     const [unitSystem, setUnitSystem] = useState<"metric" | "customary">("metric");
     const initializedRecipeRef = useRef<Id<"recipes"> | null>(null);
@@ -69,6 +70,35 @@ export default function RecipeEditor({mode, recipeId}: RecipeEditorProps) {
         form.reset(editData);
         initializedRecipeRef.current = recipeId;
     }, [editData, form, recipeId]);
+
+    async function handleDelete() {
+        if (mode !== "edit" || !recipeId) {
+            return;
+        }
+
+        const recipeName = form.getValues("step1.name");
+
+        const confirmed = window.confirm(
+            `Czy na pewno chcesz usunąć przepis „${recipeName}”? Tej operacji nie można cofnąć.`,
+        );
+
+        if (!confirmed) {
+            return;
+        }
+
+        setIsDeleting(true);
+
+        try {
+            await deleteRecipeAction(recipeId);
+            toast.success("Przepis został usunięty");
+            router.replace("/admin/recipes");
+            router.refresh();
+        } catch (error) {
+            console.error("Usuwanie przepisu:", error);
+            toast.error("Nie udało się usunąć przepisu");
+            setIsDeleting(false);
+        }
+    }
 
     async function onSubmit(values: RecipeFormValues) {
         try {
@@ -176,10 +206,36 @@ export default function RecipeEditor({mode, recipeId}: RecipeEditorProps) {
                     <div className="sticky top-0 z-40 flex items-center justify-between border-b bg-background/90 px-4 py-3 backdrop-blur">
                         <Button type="button" size="icon" variant="ghost" onClick={() => router.back()} aria-label="Wróć"><ArrowLeft className="size-5" /></Button>
                         <span className="text-sm font-medium">{mode === "edit" ? "Edycja przepisu" : "Nowy przepis"}</span>
-                        <Button type="submit" disabled={form.formState.isSubmitting}>
-                            {form.formState.isSubmitting ? <Loader2 className="size-4 animate-spin" /> : <Save className="size-4" />}
-                            Zapisz
-                        </Button>
+                        <div className="flex items-center gap-2">
+                            {mode === "edit" && (
+                                <Button
+                                    type="button"
+                                    size="icon"
+                                    variant="destructive"
+                                    aria-label="Usuń przepis"
+                                    disabled={isDeleting || form.formState.isSubmitting}
+                                    onClick={handleDelete}
+                                >
+                                    {isDeleting ? (
+                                        <Loader2 className="size-4 animate-spin" />
+                                    ) : (
+                                        <Trash2 className="size-4" />
+                                    )}
+                                </Button>
+                            )}
+
+                            <Button
+                                type="submit"
+                                disabled={isDeleting || form.formState.isSubmitting}
+                            >
+                                {form.formState.isSubmitting ? (
+                                    <Loader2 className="size-4 animate-spin" />
+                                ) : (
+                                    <Save className="size-4" />
+                                )}
+                                Zapisz
+                            </Button>
+                        </div>
                     </div>
 
                     <div className="relative">
