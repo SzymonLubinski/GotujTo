@@ -11,7 +11,7 @@ import RecipeHeader from "@/components/Recipe/RecipeHeader";
 import RecipeIngredients from "@/components/Recipe/RecipeIngredients";
 import RecipeSteps from "@/components/Recipe/RecipeSteps";
 import UnitSystemToggle, {type UnitSystem} from "@/components/Recipe/UnitSystemToggle";
-import CommentsSection from "@/components/Recipe/CommentsSection";
+
 
 export default function RecipeDetailsScreen() {
     const {recipeId: recipeIdParam, productId} = useLocalSearchParams<{
@@ -41,22 +41,26 @@ export default function RecipeDetailsScreen() {
     }, [productId]);
 
 
-    const result = useQuery(
-        api.recipes.getRecipeById,
-        recipeId
-            // @ts-ignore
-            ? {recipeId, productIds}
-            : "skip",
-    );
     const deals = useQuery(api.deals.getDealsByStore, {
         stores: selectedStores,
     });
 
     const dealProductIds = useMemo(() => {
-        return new Set<string>(
+        return [...new Set(
             (deals ?? []).map(deal => deal.productId),
-        );
+        )];
     }, [deals]);
+
+    const result = useQuery(
+        api.recipes.getRecipeById,
+        recipeId
+            ? {
+                recipeId,
+                dealProductIds,
+                fridgeProductIds: productIds,
+            }
+            : "skip",
+    );
 
     if (!recipeId || result === undefined) {
         return (
@@ -80,13 +84,13 @@ export default function RecipeDetailsScreen() {
     }
 
     const {recipe, ingredientGroups, steps} = result;
-    const ownedIngredients = ingredientGroups.filter(group => group.ingredients[0].inDeal).length;
+    const ownedIngredients = ingredientGroups.filter(group => group.ingredients[0].inFridge).length;
 
     const promotedIngredients = ingredientGroups.filter(group => {
         const ingredient = group.ingredients[0];
 
         return ingredient
-            ? dealProductIds.has(ingredient.productId)
+            ? dealProductIds.includes(ingredient.productId)
             : false;
     }).length;
 
@@ -168,7 +172,7 @@ export default function RecipeDetailsScreen() {
 
                 <View className="mt-5">
                     <RecipeIngredients ingredientGroups={ingredientGroups}
-                                       dealProductIds={dealProductIds}
+                                       dealProductIds={new Set(dealProductIds)}
                                        unitSystem={unitSystem}
                     />
                 </View>

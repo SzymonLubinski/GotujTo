@@ -15,12 +15,18 @@ const TEST_AD_POSITION = 3;
 export default function Index() {
     const [selectedStores, setSelectedStores] =
         useState<StoresT[]>([...stores]);
+    const [dealsAsOf] = useState(() => Date.now());
+    const [feedSession] = useState(() => ({
+        randomSeed: `${Date.now()}-${Math.random()}`,
+        createdBefore: Date.now(),
+    }));
 
     const dealRecipesQuery = useQuery(
         api.recipes.getRecipesByDeals,
         {
             stores: selectedStores,
-            limit: 10,
+            limit: 30,
+            asOf: dealsAsOf,
         },
     );
 
@@ -45,7 +51,10 @@ export default function Index() {
     } = usePaginatedQuery(
         api.recipes.getRecipesPaginated,
         !dealsLoading
-            ? {excludedRecipeIds}
+            ? {
+                excludedRecipeIds,
+                ...feedSession,
+            }
             : "skip",
         {
             initialNumItems: RECIPES_PAGE_SIZE,

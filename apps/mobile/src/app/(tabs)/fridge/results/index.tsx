@@ -10,6 +10,10 @@ import {ShortsFeedItem} from "@gotujto/shared/types/result-type";
 
 export default function FridgeResultsScreen() {
     const [standardStarted, setStandardStarted] = useState(false);
+    const [feedSession] = useState(() => ({
+        randomSeed: `${Date.now()}-${Math.random()}`,
+        createdBefore: Date.now(),
+    }));
     const {productId} = useLocalSearchParams<{
         productId?: string | string[];
     }>();
@@ -35,7 +39,12 @@ export default function FridgeResultsScreen() {
         loadMore,
     } = usePaginatedQuery(
         api.recipes.getRecipesPaginated,
-        standardStarted ? {excludedRecipeIds} : "skip",
+        standardStarted
+            ? {
+                excludedRecipeIds,
+                ...feedSession,
+            }
+            : "skip",
         {initialNumItems: 2},
     );
 

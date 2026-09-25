@@ -2,9 +2,7 @@ import type {MetadataRoute} from "next";
 import {fetchQuery} from "convex/nextjs";
 import {api} from "@gotujto/convex/_generated/api";
 
-const siteUrl =
-    process.env.NEXT_PUBLIC_SITE_URL ??
-    "https://gotujto.pl";
+const siteUrl = "https://gotuj-to.vercel.app"
 
 export default async function sitemap():
     Promise<MetadataRoute.Sitemap> {

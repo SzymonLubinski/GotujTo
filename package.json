@@ -2,7 +2,11 @@
   "name": "gotujto",
   "private": true,
   "scripts": {
-    "dev": "pnpm --filter web dev",
-    "build": "pnpm --filter web build"
+    "dev:web": "node --env-file=\"../gotujto-secrets/web/.env.local\" \"../gotujto-secrets/run-with-env.mjs\" \"apps/web\" pnpm dev --webpack",
+    "dev:mobile": "node --env-file=\"../gotujto-secrets/mobile/.env.local\" \"../gotujto-secrets/run-with-env.mjs\" \"apps/mobile\" pnpm start",
+    "dev:convex": "node --env-file=\"../gotujto-secrets/convex/.env.local\" \"../gotujto-secrets/run-with-env.mjs\" \"packages/convex\" pnpm exec convex dev",
+    "import:recipe-imports:prod": "node --env-file=\"../gotujto-secrets/convex/.env.local\" \"../gotujto-secrets/run-with-env.mjs\" \"packages/convex\" pnpm exec convex import --prod --append --table recipeImports",
+    "data:recipe-imports:prod": "node --env-file=\"../gotujto-secrets/convex/.env.local\" \"../gotujto-secrets/run-with-env.mjs\" \"packages/convex\" pnpm exec convex data recipeImports --prod --order desc --limit 30 --format jsonl | powershell -NoProfile -Command \"$input | ForEach-Object { $_ | ConvertFrom-Json | Select-Object externalId, _id } | ConvertTo-Json\"",
+    "build": "node --env-file=\"../gotujto-secrets/web/.env.local\" \"../gotujto-secrets/run-with-env.mjs\" \"apps/web\" pnpm build"
   }
 }

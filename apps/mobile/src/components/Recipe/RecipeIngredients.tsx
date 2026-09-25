@@ -84,14 +84,14 @@ export default function RecipeIngredients({ingredientGroups, dealProductIds, uni
                     >
                         <View
                             className={
-                                selectedIngredient.owned
+                                selectedIngredient.inFridge
                                     ? "h-9 w-9 items-center justify-center rounded-full bg-emerald-500/20"
                                     : onDeal
                                         ? "h-9 w-9 items-center justify-center rounded-full bg-orange-500/20"
                                         : "h-9 w-9 items-center justify-center rounded-full bg-white/10"
                             }
                         >
-                            {selectedIngredient.owned ? (
+                            {selectedIngredient.inFridge ? (
                                 <Check
                                     size={18}
                                     color="#34d399"
@@ -122,7 +122,7 @@ export default function RecipeIngredients({ingredientGroups, dealProductIds, uni
                             </Text>
 
                             <View className="mt-1.5 flex-row flex-wrap gap-2">
-                                {selectedIngredient.owned && (
+                                {selectedIngredient.inFridge && (
                                     <IngredientBadge
                                         label="W lodówce"
                                         icon="fridge"
