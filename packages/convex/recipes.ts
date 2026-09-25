@@ -1,7 +1,6 @@
 // noinspection JSUnusedGlobalSymbols
 
 import {
-    internalMutation,
     mutation,
     query,
     MutationCtx,
@@ -13,13 +12,11 @@ import {filter} from "convex-helpers/server/filter";
 import {type Doc, type Id} from "./_generated/dataModel";
 import {customaryUnits, dietTypes, mealTypes, metricUnits, occasions, stores} from "../shared/data/stableData";
 import {requireAdmin} from "./lib/requireAdmin";
-import {internal} from "./_generated/api";
 
 const DEFAULT_DEALS_LIMIT = 30;
 const MAX_DEALS_LIMIT = 30;
 const DEFAULT_FRIDGE_LIMIT = 30;
 const MAX_FRIDGE_LIMIT = 30;
-const BACKFILL_BATCH_SIZE = 25;
 const MAX_IMAGE_SIZE = 10 * 1024 * 1024;
 
 const allowedImageTypes = new Set([
@@ -1092,81 +1089,6 @@ export const getRecipesForSitemap = query({
             recipeId: recipe._id,
             createdAt: recipe._creationTime,
         }));
-    },
-});
-
-export const startBackfillFeedMetadata = mutation({
-    args: {
-        adminSecret: v.string(),
-    },
-    handler: async (ctx, args) => {
-        requireAdmin(args.adminSecret);
-
-        await ctx.scheduler.runAfter(
-            0,
-            internal.recipes.backfillFeedMetadataBatch,
-            {cursor: null},
-        );
-
-        return {started: true};
-    },
-});
-
-export const backfillFeedMetadataBatch = internalMutation({
-    args: {
-        cursor: v.union(v.string(), v.null()),
-    },
-    handler: async (ctx, args) => {
-        const page = await ctx.db
-            .query("recipes")
-            .paginate({
-                cursor: args.cursor,
-                numItems: BACKFILL_BATCH_SIZE,
-            });
-
-        await Promise.all(
-            page.page.map(async recipe => {
-                const ingredients = await ctx.db
-                    .query("ingredients")
-                    .withIndex("by_recipeId", index =>
-                        index.eq("recipeId", recipe._id),
-                    )
-                    .collect();
-                const requiredIngredientGroups = new Set(
-                    ingredients.map(ingredient => ingredient.substitutionGroup),
-                ).size;
-
-                await Promise.all([
-                    ctx.db.patch(recipe._id, {
-                        feedRank: recipe.feedRank ?? getFeedRank(recipe._id),
-                        requiredIngredientGroups,
-                    }),
-                    ...ingredients
-                        .filter(ingredient =>
-                            ingredient.requiredIngredientGroups !==
-                            requiredIngredientGroups,
-                        )
-                        .map(ingredient =>
-                            ctx.db.patch(ingredient._id, {
-                                requiredIngredientGroups,
-                            }),
-                        ),
-                ]);
-            }),
-        );
-
-        if (!page.isDone) {
-            await ctx.scheduler.runAfter(
-                0,
-                internal.recipes.backfillFeedMetadataBatch,
-                {cursor: page.continueCursor},
-            );
-        }
-
-        return {
-            updatedRecipes: page.page.length,
-            isDone: page.isDone,
-        };
     },
 });
 
