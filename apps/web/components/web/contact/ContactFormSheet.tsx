@@ -50,7 +50,7 @@ export function ContactFormSheet({
         recipe ? recipeCategories[0].value : "contact",
     );
     const [isPending, startTransition] = useTransition();
-    const formStartedAtRef = useRef(Date.now());
+    const formStartedAtRef = useRef<number | null>(null);
     const honeypotRef = useRef<HTMLInputElement>(null);
 
     function handleOpenChange(nextOpen: boolean) {
@@ -77,7 +77,7 @@ export function ContactFormSheet({
                     }
                     : undefined,
                 honeypot: honeypotRef.current?.value ?? "",
-                formStartedAt: formStartedAtRef.current,
+                formStartedAt: formStartedAtRef.current ?? Date.now(),
             });
 
             if (!result.success) {
