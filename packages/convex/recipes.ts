@@ -1,18 +1,25 @@
 // noinspection JSUnusedGlobalSymbols
 
-import {mutation, query, MutationCtx, type QueryCtx} from "./_generated/server";
+import {
+    internalMutation,
+    mutation,
+    query,
+    MutationCtx,
+    type QueryCtx,
+} from "./_generated/server";
 import {ConvexError, v} from "convex/values";
 import {paginationOptsValidator} from "convex/server";
 import {filter} from "convex-helpers/server/filter";
 import {type Doc, type Id} from "./_generated/dataModel";
 import {customaryUnits, dietTypes, mealTypes, metricUnits, occasions, stores} from "../shared/data/stableData";
 import {requireAdmin} from "./lib/requireAdmin";
+import {internal} from "./_generated/api";
 
-const DEFAULT_DEALS_LIMIT = 10;
+const DEFAULT_DEALS_LIMIT = 30;
 const MAX_DEALS_LIMIT = 30;
-const DEFAULT_FRIDGE_LIMIT = 20;
-const MAX_FRIDGE_LIMIT = 50;
-const CANDIDATE_MULTIPLIER = 3;
+const DEFAULT_FRIDGE_LIMIT = 30;
+const MAX_FRIDGE_LIMIT = 30;
+const BACKFILL_BATCH_SIZE = 25;
 const MAX_IMAGE_SIZE = 10 * 1024 * 1024;
 
 const allowedImageTypes = new Set([
@@ -52,9 +59,17 @@ const recipeStepsV = v.array(v.object({
 }));
 
 type RecipeCandidate = {
+    recipeId: Id<"recipes">;
+    matchedProductIds: Set<Id<"products">>;
+    matchedGroups: Set<number>;
+    requiredGroups: number;
+    matchPercentage: number;
+    thrift: number;
+};
+
+type RecipeCandidateWithDetails = RecipeCandidate & {
     recipe: Doc<"recipes">;
     ingredients: Doc<"ingredients">[];
-    matchedProductIds: Set<Id<"products">>;
 };
 
 type RecipeMatch = {
@@ -117,7 +132,12 @@ export const createRecipe = mutation({
                 authorId: "David",
                 authorName: "David",
                 favorite: 0,
+                requiredIngredientGroups: args.step2.length,
                 ...args.step1,
+            });
+
+            await ctx.db.patch(recipeId, {
+                feedRank: getFeedRank(recipeId),
             });
 
             const ingredients = args.step2.flatMap((group, groupIndex) => {
@@ -126,12 +146,14 @@ export const createRecipe = mutation({
                     ...group.main,
                     substitutionGroup: groupIndex,
                     groupLevel: 0,
+                    requiredIngredientGroups: args.step2.length,
                 };
                 const substitutes = group.substitutes.map((substitute, substituteIndex) => ({
                     recipeId,
                     ...substitute,
                     substitutionGroup: groupIndex,
                     groupLevel: substituteIndex + 1,
+                    requiredIngredientGroups: args.step2.length,
                 }));
 
                 return [mainIngredient, ...substitutes];
@@ -185,7 +207,10 @@ export const updateRecipe = mutation({
             ctx.db.query("steps").withIndex("by_recipeId", index => index.eq("recipeId", args.recipeId)).collect(),
         ]);
 
-        await ctx.db.patch(args.recipeId, args.step1);
+        await ctx.db.patch(args.recipeId, {
+            ...args.step1,
+            requiredIngredientGroups: args.step2.length,
+        });
         await Promise.all([
             ...ingredients.map(ingredient => ctx.db.delete(ingredient._id)),
             ...steps.map(step => ctx.db.delete(step._id)),
@@ -197,12 +222,14 @@ export const updateRecipe = mutation({
                 ...group.main,
                 substitutionGroup: groupIndex,
                 groupLevel: 0,
+                requiredIngredientGroups: args.step2.length,
             },
             ...group.substitutes.map((substitute, substituteIndex) => ({
                 recipeId: args.recipeId,
                 ...substitute,
                 substitutionGroup: groupIndex,
                 groupLevel: substituteIndex + 1,
+                requiredIngredientGroups: args.step2.length,
             })),
         ]);
 
@@ -584,24 +611,25 @@ export const getRecipesByProducts = query({
             DEFAULT_FRIDGE_LIMIT,
             MAX_FRIDGE_LIMIT,
         );
-        const candidates = await getFunc1(
+        const candidates = await getRecipeCandidates(
             ctx,
             args.productIds,
-            resultLimit * CANDIDATE_MULTIPLIER,
         );
-        const evaluatedCandidates = candidates.map(candidate => ({
+        candidates.sort(compareRecipeCandidates);
+        const selectedCandidates = await getCandidateDetails(
+            ctx,
+            candidates.slice(0, resultLimit),
+        );
+        const evaluatedCandidates = selectedCandidates.map(candidate => ({
             candidate,
-            match: getFunc2(candidate.ingredients, candidate.matchedProductIds),
+            match: getFunc2(
+                candidate.ingredients,
+                candidate.matchedProductIds,
+            ),
         }));
-
-        evaluatedCandidates.sort((first, second) => {
-            return second.match.matchPercentage - first.match.matchPercentage;
-        });
-
-        const selectedCandidates = evaluatedCandidates.slice(0, resultLimit);
         const missingProductIds = [
             ...new Set(
-                selectedCandidates.flatMap(({match}) =>
+                evaluatedCandidates.flatMap(({match}) =>
                     match.missingGroups.map(ingredient => ingredient.productId),
                 ),
             ),
@@ -616,7 +644,7 @@ export const getRecipesByProducts = query({
         );
 
         return await Promise.all(
-            selectedCandidates.map(async ({candidate, match}) => {
+            evaluatedCandidates.map(async ({candidate, match}) => {
                 const media = await getRecipeMedia(ctx, candidate.recipe);
 
                 return {
@@ -642,8 +670,10 @@ export const getRecipesByDeals = query({
     args: {
         stores: v.array(v.union(...stores.map(store => v.literal(store)))),
         limit: v.optional(v.number()),
+        asOf: v.optional(v.number()),
     },
     handler: async (ctx, args) => {
+        const asOf = args.asOf ?? Date.now();
         const resultLimit = normalizeLimit(
             args.limit,
             DEFAULT_DEALS_LIMIT,
@@ -657,7 +687,17 @@ export const getRecipesByDeals = query({
                 selectedStores.map(store =>
                     ctx.db
                         .query("deals")
-                        .withIndex("by_store", index => index.eq("store", store))
+                        .withIndex("by_store_endsAt", index =>
+                            index
+                                .eq("store", store)
+                                .gt("endsAt", asOf),
+                        )
+                        .filter(query =>
+                            query.lte(
+                                query.field("startsAt"),
+                                asOf,
+                            ),
+                        )
                         .collect(),
                 ),
             )
@@ -671,49 +711,43 @@ export const getRecipesByDeals = query({
         for (const deal of deals) {
             const currentDeal = bestDealByProductId.get(deal.productId);
 
-            if (!currentDeal || deal.lowerBy > currentDeal.lowerBy) {
+            if (
+                !currentDeal ||
+                (deal.lowerBy ?? 0) >
+                (currentDeal.lowerBy ?? 0)
+            ) {
                 bestDealByProductId.set(deal.productId, deal);
             }
         }
 
-        const candidates = await getFunc1(
+        const candidates = await getRecipeCandidates(
             ctx,
             [...bestDealByProductId.keys()],
-            resultLimit * CANDIDATE_MULTIPLIER,
+            new Map(
+                [...bestDealByProductId.entries()].map(
+                    ([productId, deal]) => [
+                        productId,
+                        deal.lowerBy ?? 0,
+                    ],
+                ),
+            ),
         );
-        const evaluatedCandidates = candidates.map(candidate => {
-            const match = getFunc2(candidate.ingredients, candidate.matchedProductIds);
-            let thrift = 0;
-
-            for (const ingredients of match.groupsMap.values()) {
-                let bestGroupDiscount = 0;
-
-                for (const ingredient of ingredients) {
-                    const deal = bestDealByProductId.get(ingredient.productId);
-
-                    if (deal && deal.lowerBy > bestGroupDiscount) {
-                        bestGroupDiscount = deal.lowerBy;
-                    }
-                }
-
-                thrift += bestGroupDiscount;
-            }
-
-            return {candidate, match, thrift};
-        });
-
-        evaluatedCandidates.sort((first, second) => {
-            if (second.match.matchPercentage !== first.match.matchPercentage) {
-                return second.match.matchPercentage - first.match.matchPercentage;
-            }
-
-            return second.thrift - first.thrift;
-        });
+        candidates.sort(compareRecipeCandidates);
+        const selectedCandidates = await getCandidateDetails(
+            ctx,
+            candidates.slice(0, resultLimit),
+        );
+        const evaluatedCandidates = selectedCandidates.map(candidate => ({
+            candidate,
+            match: getFunc2(
+                candidate.ingredients,
+                candidate.matchedProductIds,
+            ),
+        }));
 
         return await Promise.all(
             evaluatedCandidates
-                .slice(0, resultLimit)
-                .map(async ({candidate, match, thrift}) => {
+                .map(async ({candidate, match}) => {
                     const media = await getRecipeMedia(ctx, candidate.recipe);
 
                     return {
@@ -722,7 +756,7 @@ export const getRecipesByDeals = query({
                         requiredGroups: match.requiredGroups,
                         source: "deals" as const,
                         matchedGroups: match.matchedGroups,
-                        thrift,
+                        thrift: candidate.thrift,
                         matchPercentage: match.matchPercentage,
                         dealProductIds: [...candidate.matchedProductIds],
                         fridgeProductIds: [] as Id<"products">[],
@@ -743,53 +777,91 @@ export const getRecipesPaginated = query({
         const excludedRecipeIds =
             new Set(args.excludedRecipeIds);
 
-        const allRecipes = await ctx.db
+        // Istniejące przepisy nie mają feedRank do czasu zakończenia migracji.
+        // Ten wariant zachowuje działający feed lokalnie i po wdrożeniu schematu,
+        // a po backfillu cała baza przejdzie na szybki indeks by_feedRank.
+        const hasRankedRecipe = await ctx.db
             .query("recipes")
-            .collect();
-
-        const orderedRecipes = allRecipes
-            .filter(recipe =>
-                recipe._creationTime <= args.createdBefore &&
-                !excludedRecipeIds.has(recipe._id),
+            .withIndex("by_feedRank", index =>
+                index.gte("feedRank", 0),
             )
-            .sort((first, second) => {
-                const firstScore = getSeededScore(
-                    args.randomSeed,
-                    first._id,
-                );
+            .first();
 
-                const secondScore = getSeededScore(
-                    args.randomSeed,
-                    second._id,
-                );
+        if (!hasRankedRecipe) {
+            const orderedRecipes = (await ctx.db
+                .query("recipes")
+                .collect())
+                .filter(recipe =>
+                    recipe._creationTime <= args.createdBefore &&
+                    !excludedRecipeIds.has(recipe._id),
+                )
+                .sort((first, second) => {
+                    const firstScore = getSeededScore(
+                        args.randomSeed,
+                        first._id,
+                    );
+                    const secondScore = getSeededScore(
+                        args.randomSeed,
+                        second._id,
+                    );
 
-                if (firstScore !== secondScore) {
-                    return firstScore - secondScore;
-                }
+                    if (firstScore !== secondScore) {
+                        return firstScore - secondScore;
+                    }
 
-                return first._id < second._id ? -1 : 1;
-            });
+                    return first._id < second._id ? -1 : 1;
+                });
 
-        const parsedOffset = args.paginationOpts.cursor
-            ? Number.parseInt(
-                args.paginationOpts.cursor,
-                10,
-            )
-            : 0;
-
-        const offset =
-            Number.isSafeInteger(parsedOffset) &&
-            parsedOffset >= 0
-                ? parsedOffset
+            const parsedOffset = args.paginationOpts.cursor
+                ? Number.parseInt(args.paginationOpts.cursor, 10)
                 : 0;
+            const offset =
+                Number.isSafeInteger(parsedOffset) && parsedOffset >= 0
+                    ? parsedOffset
+                    : 0;
+            const legacyPageRecipes = orderedRecipes.slice(
+                offset,
+                offset + args.paginationOpts.numItems,
+            );
+            const page = await Promise.all(
+                legacyPageRecipes.map(async recipe => ({
+                    recipe: {
+                        ...recipe,
+                        ...await getRecipeMedia(ctx, recipe),
+                    },
+                    source: "standard" as const,
+                    dealProductIds: [] as Id<"products">[],
+                    fridgeProductIds: [] as Id<"products">[],
+                })),
+            );
 
-        const pageRecipes = orderedRecipes.slice(
-            offset,
-            offset + args.paginationOpts.numItems,
-        );
+            return {
+                page,
+                isDone: offset + legacyPageRecipes.length >= orderedRecipes.length,
+                continueCursor: String(offset + legacyPageRecipes.length),
+            };
+        }
+
+        const pageRecipes = await ctx.db
+            .query("recipes")
+            .withIndex("by_feedRank", index =>
+                index.gte("feedRank", 0),
+            )
+            .filter(query =>
+                query.and(
+                    query.lte(
+                        query.field("_creationTime"),
+                        args.createdBefore,
+                    ),
+                    ...[...excludedRecipeIds].map(recipeId =>
+                        query.neq(query.field("_id"), recipeId),
+                    ),
+                ),
+            )
+            .paginate(args.paginationOpts);
 
         const page = await Promise.all(
-            pageRecipes.map(async recipe => {
+            pageRecipes.page.map(async recipe => {
                 const media =
                     await getRecipeMedia(ctx, recipe);
 
@@ -807,14 +879,10 @@ export const getRecipesPaginated = query({
             }),
         );
 
-        const nextOffset =
-            offset + pageRecipes.length;
-
         return {
             page,
-            isDone:
-                nextOffset >= orderedRecipes.length,
-            continueCursor: String(nextOffset),
+            isDone: pageRecipes.isDone,
+            continueCursor: pageRecipes.continueCursor,
         };
     },
 });
@@ -831,10 +899,14 @@ async function getRecipeMedia(ctx: QueryCtx, recipe: Doc<"recipes">) {
     return {images, videoKey};
 }
 
-async function getFunc1(ctx: QueryCtx, productIds: Id<"products">[], candidateLimit: number): Promise<RecipeCandidate[]> {
+async function getRecipeCandidates(
+    ctx: QueryCtx,
+    productIds: Id<"products">[],
+    discountsByProductId?: ReadonlyMap<Id<"products">, number>,
+): Promise<RecipeCandidate[]> {
     const uniqueProductIds = [...new Set(productIds)];
 
-    if (uniqueProductIds.length === 0 || candidateLimit <= 0) {
+    if (uniqueProductIds.length === 0) {
         return [];
     }
 
@@ -848,56 +920,107 @@ async function getFunc1(ctx: QueryCtx, productIds: Id<"products">[], candidateLi
             ),
         )
     ).flat();
-    const matchedProductIdsByRecipe = new Map<
+    const candidatesByRecipeId = new Map<
         Id<"recipes">,
-        Set<Id<"products">>
-    >();
-    const matchedGroupsByRecipe = new Map<
-        Id<"recipes">,
-        Set<number>
+        {
+            matchedProductIds: Set<Id<"products">>;
+            matchedGroups: Set<number>;
+            requiredGroups: number;
+            discountsByGroup: Map<number, number>;
+        }
     >();
 
     for (const ingredient of matchingIngredients) {
-        const matchedProductIds =
-            matchedProductIdsByRecipe.get(ingredient.recipeId) ?? new Set<Id<"products">>();
-        const matchedGroups =
-            matchedGroupsByRecipe.get(ingredient.recipeId) ?? new Set<number>();
+        const candidate = candidatesByRecipeId.get(ingredient.recipeId) ?? {
+            matchedProductIds: new Set<Id<"products">>(),
+            matchedGroups: new Set<number>(),
+            requiredGroups: 0,
+            discountsByGroup: new Map<number, number>(),
+        };
 
-        matchedProductIds.add(ingredient.productId);
-        matchedGroups.add(ingredient.substitutionGroup);
-        matchedProductIdsByRecipe.set(ingredient.recipeId, matchedProductIds);
-        matchedGroupsByRecipe.set(ingredient.recipeId, matchedGroups);
+        candidate.matchedProductIds.add(ingredient.productId);
+        candidate.matchedGroups.add(ingredient.substitutionGroup);
+        candidate.requiredGroups = Math.max(
+            candidate.requiredGroups,
+            ingredient.requiredIngredientGroups ?? 0,
+        );
+
+        const discount = discountsByProductId?.get(ingredient.productId) ?? 0;
+        const currentGroupDiscount = candidate.discountsByGroup.get(
+            ingredient.substitutionGroup,
+        ) ?? 0;
+        candidate.discountsByGroup.set(
+            ingredient.substitutionGroup,
+            Math.max(currentGroupDiscount, discount),
+        );
+        candidatesByRecipeId.set(ingredient.recipeId, candidate);
     }
 
-    const selectedRecipeIds = [...matchedGroupsByRecipe.entries()]
-        .sort((first, second) => second[1].size - first[1].size)
-        .slice(0, candidateLimit)
-        .map(([recipeId]) => recipeId);
-    const candidates = await Promise.all(
-        selectedRecipeIds.map(async recipeId => {
+    return [...candidatesByRecipeId.entries()].flatMap(
+        ([recipeId, candidate]) => {
+            if (candidate.requiredGroups === 0) {
+                return [];
+            }
+
+            return [{
+                recipeId,
+                matchedProductIds: candidate.matchedProductIds,
+                matchedGroups: candidate.matchedGroups,
+                requiredGroups: candidate.requiredGroups,
+                matchPercentage: Math.round(
+                    (candidate.matchedGroups.size / candidate.requiredGroups) * 100,
+                ),
+                thrift: [...candidate.discountsByGroup.values()]
+                    .reduce((total, discount) => total + discount, 0),
+            }];
+        },
+    );
+}
+
+async function getCandidateDetails(
+    ctx: QueryCtx,
+    candidates: RecipeCandidate[],
+): Promise<RecipeCandidateWithDetails[]> {
+    const candidatesWithDetails = await Promise.all(
+        candidates.map(async candidate => {
             const [recipe, ingredients] = await Promise.all([
-                ctx.db.get(recipeId),
+                ctx.db.get(candidate.recipeId),
                 ctx.db
                     .query("ingredients")
-                    .withIndex("by_recipeId", index => index.eq("recipeId", recipeId))
+                    .withIndex("by_recipeId", index =>
+                        index.eq("recipeId", candidate.recipeId),
+                    )
                     .collect(),
             ]);
 
-            if (!recipe) {
-                return null;
-            }
-
-            return {
-                recipe,
-                ingredients,
-                matchedProductIds: matchedProductIdsByRecipe.get(recipeId) ?? new Set<Id<"products">>(),
-            };
+            return recipe
+                ? {...candidate, recipe, ingredients}
+                : null;
         }),
     );
 
-    return candidates.filter(
-        (candidate): candidate is RecipeCandidate => candidate !== null,
+    return candidatesWithDetails.filter(
+        (candidate): candidate is RecipeCandidateWithDetails => candidate !== null,
     );
+}
+
+function compareRecipeCandidates(
+    first: RecipeCandidate,
+    second: RecipeCandidate,
+) {
+    if (second.matchPercentage !== first.matchPercentage) {
+        return second.matchPercentage - first.matchPercentage;
+    }
+
+    if (second.matchedGroups.size !== first.matchedGroups.size) {
+        return second.matchedGroups.size - first.matchedGroups.size;
+    }
+
+    if (second.thrift !== first.thrift) {
+        return second.thrift - first.thrift;
+    }
+
+    return first.recipeId < second.recipeId ? -1 : 1;
 }
 
 function getFunc2(ingredients: Doc<"ingredients">[], matchedProductIds: ReadonlySet<Id<"products">>,): RecipeMatch {
@@ -971,6 +1094,85 @@ export const getRecipesForSitemap = query({
         }));
     },
 });
+
+export const startBackfillFeedMetadata = mutation({
+    args: {
+        adminSecret: v.string(),
+    },
+    handler: async (ctx, args) => {
+        requireAdmin(args.adminSecret);
+
+        await ctx.scheduler.runAfter(
+            0,
+            internal.recipes.backfillFeedMetadataBatch,
+            {cursor: null},
+        );
+
+        return {started: true};
+    },
+});
+
+export const backfillFeedMetadataBatch = internalMutation({
+    args: {
+        cursor: v.union(v.string(), v.null()),
+    },
+    handler: async (ctx, args) => {
+        const page = await ctx.db
+            .query("recipes")
+            .paginate({
+                cursor: args.cursor,
+                numItems: BACKFILL_BATCH_SIZE,
+            });
+
+        await Promise.all(
+            page.page.map(async recipe => {
+                const ingredients = await ctx.db
+                    .query("ingredients")
+                    .withIndex("by_recipeId", index =>
+                        index.eq("recipeId", recipe._id),
+                    )
+                    .collect();
+                const requiredIngredientGroups = new Set(
+                    ingredients.map(ingredient => ingredient.substitutionGroup),
+                ).size;
+
+                await Promise.all([
+                    ctx.db.patch(recipe._id, {
+                        feedRank: recipe.feedRank ?? getFeedRank(recipe._id),
+                        requiredIngredientGroups,
+                    }),
+                    ...ingredients
+                        .filter(ingredient =>
+                            ingredient.requiredIngredientGroups !==
+                            requiredIngredientGroups,
+                        )
+                        .map(ingredient =>
+                            ctx.db.patch(ingredient._id, {
+                                requiredIngredientGroups,
+                            }),
+                        ),
+                ]);
+            }),
+        );
+
+        if (!page.isDone) {
+            await ctx.scheduler.runAfter(
+                0,
+                internal.recipes.backfillFeedMetadataBatch,
+                {cursor: page.continueCursor},
+            );
+        }
+
+        return {
+            updatedRecipes: page.page.length,
+            isDone: page.isDone,
+        };
+    },
+});
+
+function getFeedRank(recipeId: Id<"recipes">) {
+    return getSeededScore("feed-rank", recipeId);
+}
 
 function getSeededScore(
     seed: string,

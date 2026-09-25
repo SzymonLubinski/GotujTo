@@ -13,9 +13,10 @@ export const createDeals = mutation({
         deals: v.array(v.object({
             productId: v.id("products"),
             store: v.union(...stores.map((store) => v.literal(store))),
-            dealPrice: v.number(),
-            lowerBy: v.number(),
-            regularPrice: v.number(),
+            dealPrice: v.optional(v.number()),
+            lowerBy: v.optional(v.number()),
+            regularPrice: v.optional(v.number()),
+            promotionDescription: v.optional(v.string()),
             startsAt: v.number(),
             endsAt: v.number(),
         }))

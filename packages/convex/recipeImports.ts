@@ -59,10 +59,12 @@ type ApprovalData = {
 
 export const getNextForReview = query({
     args: {
+        adminSecret: v.string(),
         status: reviewStatus,
         excludedIds: v.array(v.id("recipeImports")),
     },
     handler: async (ctx, args) => {
+        requireAdmin(args.adminSecret);
         const excludedIds = new Set(args.excludedIds);
         const recipes = await ctx.db
             .query("recipeImports")
@@ -242,8 +244,12 @@ export const saveDraft = mutation({
 });
 
 export const postpone = mutation({
-    args: {recipeImportId: v.id("recipeImports")},
+    args: {
+        adminSecret: v.string(),
+        recipeImportId: v.id("recipeImports"),
+    },
     handler: async (ctx, args) => {
+        requireAdmin(args.adminSecret);
         const recipeImport = await ctx.db.get(args.recipeImportId);
 
         if (!recipeImport) {
@@ -334,6 +340,9 @@ export const finalizeApproval = internalMutation({
         const recipe = requireCompleteRecipe(recipeImport);
         const completeIngredients = requireCompleteIngredients(ingredients);
         const completeSteps = requireCompleteSteps(steps);
+        const requiredIngredientGroups = new Set(
+            completeIngredients.map(ingredient => ingredient.substitutionGroup),
+        ).size;
 
         const products = await Promise.all(
             completeIngredients.map(ingredient => ctx.db.get(ingredient.productId)),
@@ -356,6 +365,11 @@ export const finalizeApproval = internalMutation({
             types: recipe.types,
             occasions: recipe.occasions,
             authorName: recipe.authorName,
+            requiredIngredientGroups,
+        });
+
+        await ctx.db.patch(recipeId, {
+            feedRank: getFeedRank(recipeId),
         });
 
         await Promise.all(completeIngredients.map(ingredient =>
@@ -369,6 +383,7 @@ export const finalizeApproval = internalMutation({
                 metricQuantity: ingredient.metricQuantity,
                 customaryQuantity: ingredient.customaryQuantity,
                 optional: ingredient.optional,
+                requiredIngredientGroups,
             }),
         ));
 
@@ -419,8 +434,12 @@ export const markImportError = internalMutation({
 });
 
 export const approve = action({
-    args: {recipeImportId: v.id("recipeImports")},
+    args: {
+        adminSecret: v.string(),
+        recipeImportId: v.id("recipeImports"),
+    },
     handler: async (ctx, args): Promise<{recipeId: Id<"recipes">}> => {
+        requireAdmin(args.adminSecret);
         let newlyStoredImageId: Id<"_storage"> | null = null;
 
         try {
@@ -600,10 +619,12 @@ function getErrorMessage(error: unknown) {
 
 export const addSubstitute = mutation({
     args: {
+        adminSecret: v.string(),
         recipeImportId: v.id("recipeImports"),
         substitutionGroup: v.number(),
     },
     handler: async (ctx, args) => {
+        requireAdmin(args.adminSecret);
         const recipeImport = await ctx.db.get(
             args.recipeImportId,
         );
@@ -686,11 +707,13 @@ export const addSubstitute = mutation({
 
 export const removeIngredient = mutation({
     args: {
+        adminSecret: v.string(),
         ingredientImportId: v.id(
             "ingredientsImports",
         ),
     },
     handler: async (ctx, args) => {
+        requireAdmin(args.adminSecret);
         const ingredient = await ctx.db.get(
             args.ingredientImportId,
         );
@@ -753,4 +776,16 @@ async function requireUniqueRecipeImport(
             `Przepis ${recipeImport.externalId} został już zaimportowany. Duplikat: ${duplicate._id}.`,
         );
     }
+}
+
+function getFeedRank(recipeId: Id<"recipes">): number {
+    const value = `feed-rank:${recipeId}`;
+    let hash = 2166136261;
+
+    for (let index = 0; index < value.length; index++) {
+        hash ^= value.charCodeAt(index);
+        hash = Math.imul(hash, 16777619);
+    }
+
+    return hash >>> 0;
 }

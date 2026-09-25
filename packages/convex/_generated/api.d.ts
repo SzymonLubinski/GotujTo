@@ -9,6 +9,7 @@
  */
 
 import type * as blog from "../blog.js";
+import type * as contactRateLimits from "../contactRateLimits.js";
 import type * as convex__generated_api from "../convex/_generated/api.js";
 import type * as convex__generated_server from "../convex/_generated/server.js";
 import type * as deals from "../deals.js";
@@ -26,6 +27,7 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   blog: typeof blog;
+  contactRateLimits: typeof contactRateLimits;
   "convex/_generated/api": typeof convex__generated_api;
   "convex/_generated/server": typeof convex__generated_server;
   deals: typeof deals;

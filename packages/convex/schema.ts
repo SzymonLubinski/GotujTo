@@ -16,7 +16,11 @@ export default defineSchema({
         diets: v.array(v.union(...dietTypes.map((type) => v.literal(type)))),
         types: v.array(v.union(...mealTypes.map((type) => v.literal(type)))),
         occasions: v.array(v.union(...occasions.map((occasion) => v.literal(occasion)))),
+        // Uzupełniane przez migrację dla istniejących przepisów.
+        feedRank: v.optional(v.number()),
+        requiredIngredientGroups: v.optional(v.number()),
     }).index("by_name", ["name"])
+        .index("by_feedRank", ["feedRank"])
         .searchIndex("by_name_prefix", {searchField: "name"}),
 
     steps: defineTable({
@@ -41,17 +45,31 @@ export default defineSchema({
         metricQuantity: v.number(),
         customaryQuantity: v.number(),
         optional: v.boolean(),
+        // Zdenormalizowana wartość używana do rankingu lodówki i promocji.
+        requiredIngredientGroups: v.optional(v.number()),
     }).index('by_productId', ['productId']).index('by_recipeId', ['recipeId']),
 
     deals: defineTable({
         productId: v.id("products"),
         store: v.union(...stores.map((store) => v.literal(store))),
-        dealPrice: v.number(),
-        lowerBy: v.number(),
+        dealPrice: v.optional(v.number()),
+        lowerBy: v.optional(v.number()),
         regularPrice: v.optional(v.number()),
+        promotionDescription: v.optional(v.string()),
         startsAt: v.number(),
         endsAt: v.number(),
-    }).index('by_store', ['store']),
+    }).index('by_store', ['store'])
+        .index('by_store_endsAt', ['store', 'endsAt']),
+
+    contactRateLimits: defineTable({
+        // HMAC adresu IP. Nie zapisujemy surowego adresu IP ani e-maila.
+        key: v.string(),
+        hourStartedAt: v.number(),
+        hourlySubmissions: v.number(),
+        dayStartedAt: v.number(),
+        dailySubmissions: v.number(),
+        expiresAt: v.number(),
+    }).index("by_key", ["key"]),
 
     social: defineTable({
         title: v.string(),
@@ -140,5 +158,4 @@ export default defineSchema({
         description: v.union(v.string(), v.null()),
     })
         .index("by_recipeImportId", ["recipeImportId"]),
-
 })
