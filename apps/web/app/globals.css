@@ -109,6 +109,32 @@
   display: none;
 }
 
+.feed-desktop-background {
+  display: none;
+}
+
+.feed-desktop-scrollbar-gutter {
+  scrollbar-gutter: auto;
+}
+
+@media (min-width: 1024px) {
+  .feed-desktop-background {
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    display: block;
+    pointer-events: none;
+    background-image: url("/images/feed-desktop-background.png");
+    background-position: center;
+    background-size: cover;
+    background-attachment: fixed;
+  }
+
+  .feed-desktop-scrollbar-gutter {
+    scrollbar-gutter: stable both-edges;
+  }
+}
+
 input[type="search"]::-webkit-search-cancel-button {
   -webkit-appearance: none;
   appearance: none;

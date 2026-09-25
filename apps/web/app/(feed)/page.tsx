@@ -8,6 +8,7 @@ import {stores, type StoresT} from "@gotujto/shared/data/stableData";
 import ShortItem from "@/components/web/short/ShortItem";
 import DealsShortsHeader from "@/components/web/feed/DealsShortsHeader";
 import StoresSheet from "@/components/web/feed/StoresSheet";
+import FridgeShortsSkeleton from "@/components/web/feed/FridgeShortsSkeleton";
 import {useShortFeed} from "@/lib/hooks/useShortFeed";
 
 const INITIAL_SHORTS_COUNT = 3;
@@ -137,7 +138,13 @@ export default function FeedPage() {
 
     const priorityRecipesQuery = useQuery(
         api.recipes.getRecipesByDeals,
-        feedSession && dealsEnabled ? {stores: selectedStores, limit: 10} : "skip",
+        feedSession && dealsEnabled
+            ? {
+                stores: selectedStores,
+                limit: 30,
+                asOf: feedSession.createdBefore,
+            }
+            : "skip",
     );
 
     const priorityRecipesReady = !dealsEnabled || priorityRecipesQuery !== undefined;
@@ -157,6 +164,10 @@ export default function FeedPage() {
     );
 
     const allRecipes = [...priorityRecipes, ...results];
+    const isInitialLoading =
+        !feedSession ||
+        !priorityRecipesReady ||
+        status === "LoadingFirstPage";
 
     const {activeShortIndex} = useShortFeed({
         resultsLength: allRecipes.length,
@@ -245,6 +256,8 @@ export default function FeedPage() {
 
     return (
         <>
+            <div aria-hidden className="feed-desktop-background" />
+
             <DealsShortsHeader onStoresClick={() => setStoresOpen(true)} />
 
             <StoresSheet
@@ -254,25 +267,29 @@ export default function FeedPage() {
                 onSelectedStoresChange={setSelectedStores}
             />
 
-            <div
-                ref={scrollContainerRef}
-                onClickCapture={handleRecipeClick}
-                className="no-scrollbar h-full snap-y snap-mandatory overflow-y-scroll overscroll-y-contain bg-black [overflow-anchor:none]"
-            >
-                {allRecipes.map((item, index) => (
-                    <ShortItem
-                        key={item.recipe._id}
-                        item={item}
-                        index={index}
-                        isActive={index === activeShortIndex}
-                        isNearby={Math.abs(index - activeShortIndex) <= 1}
-                        isMuted={isMuted}
-                        isLastLoaded={index === allRecipes.length - 1}
-                        loadTriggerRef={loadTriggerRef}
-                        onMutedChange={setIsMuted}
-                    />
-                ))}
-            </div>
+            {isInitialLoading ? (
+                <FridgeShortsSkeleton />
+            ) : (
+                <div
+                    ref={scrollContainerRef}
+                    onClickCapture={handleRecipeClick}
+                    className="relative z-10 no-scrollbar h-full snap-y snap-mandatory overflow-y-scroll overscroll-y-contain [overflow-anchor:none]"
+                >
+                    {allRecipes.map((item, index) => (
+                        <ShortItem
+                            key={item.recipe._id}
+                            item={item}
+                            index={index}
+                            isActive={index === activeShortIndex}
+                            isNearby={Math.abs(index - activeShortIndex) <= 1}
+                            isMuted={isMuted}
+                            isLastLoaded={index === allRecipes.length - 1}
+                            loadTriggerRef={loadTriggerRef}
+                            onMutedChange={setIsMuted}
+                        />
+                    ))}
+                </div>
+            )}
         </>
     );
 }

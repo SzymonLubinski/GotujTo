@@ -42,11 +42,6 @@ export default function ProductInputController<
         }
     }
 
-    // const ingredientWatch = useWatch({control, name})
-    // useEffect(() => {
-    //     console.log('phrase:', phrase)
-    // }, [phrase]);
-
     return (
         <Field className="relative">
             <Input

@@ -1,7 +1,7 @@
 "use client";
 
 import {useEffect, useState, type ReactNode} from "react";
-import {useAction, useMutation, useQuery} from "convex/react";
+import {useQuery} from "convex/react";
 import {type FunctionReturnType} from "convex/server";
 import {AlertCircle, Check, ChevronDown, Clock, LoaderCircle, Plus, Save, Search, Trash2, Users} from "lucide-react";
 import {toast} from "sonner";
@@ -12,7 +12,14 @@ import {Button} from "@/components/ui/button";
 import {Card, CardContent, CardHeader, CardTitle} from "@/components/ui/card";
 import {Input} from "@/components/ui/input";
 import {Textarea} from "@/components/ui/textarea";
-import {saveDraftAction} from "@/app/actions";
+import {
+    addSubstituteAction,
+    approveImportAction,
+    getNextForReviewAction,
+    postponeImportAction,
+    removeImportIngredientAction,
+    saveDraftAction,
+} from "@/app/actions";
 
 type ReviewStatus = "raw" | "postponed" | "error";
 type ImportResult = NonNullable<FunctionReturnType<typeof api.recipeImports.getNextForReview>>;
@@ -30,13 +37,32 @@ export default function RecipeImportsPage() {
     const [excludedIds, setExcludedIds] = useState<Id<"recipeImports">[]>([]);
     const [draft, setDraft] = useState<ImportResult | null>(null);
     const [pendingAction, setPendingAction] = useState<"save" | "postpone" | "approve" | null>(null);
+    const [result, setResult] = useState<ImportResult | null | undefined>(undefined);
 
-    const result = useQuery(api.recipeImports.getNextForReview, {status, excludedIds});
-    const saveDraft = useMutation(api.recipeImports.saveDraft);
-    const postponeImport = useMutation(api.recipeImports.postpone);
-    const approveImport = useAction(api.recipeImports.approve);
-    const addSubstitute = useMutation(api.recipeImports.addSubstitute);
-    const removeIngredient = useMutation(api.recipeImports.removeIngredient);
+    useEffect(() => {
+        let cancelled = false;
+
+        setResult(undefined);
+
+        void getNextForReviewAction({status, excludedIds})
+            .then(nextResult => {
+                if (!cancelled) {
+                    setResult(nextResult);
+                }
+            })
+            .catch(error => {
+                console.error("get next import:", error);
+
+                if (!cancelled) {
+                    setResult(null);
+                    toast.error("Nie udało się pobrać importu");
+                }
+            });
+
+        return () => {
+            cancelled = true;
+        };
+    }, [status, excludedIds]);
 
     useEffect(() => {
         if (result) {
@@ -50,6 +76,20 @@ export default function RecipeImportsPage() {
         setStatus(nextStatus);
         setExcludedIds([]);
         setDraft(null);
+    }
+
+    async function reloadCurrent() {
+        const nextResult = await getNextForReviewAction({
+            status,
+            excludedIds,
+        });
+
+        setResult(nextResult);
+        setDraft(
+            nextResult
+                ? structuredClone(nextResult)
+                : null,
+        );
     }
 
     function skipCurrent() {
@@ -142,7 +182,7 @@ export default function RecipeImportsPage() {
         try {
             setPendingAction("postpone");
             await persistDraft();
-            await postponeImport({recipeImportId: draft.recipe._id});
+            await postponeImportAction({recipeImportId: draft.recipe._id});
             skipCurrent();
             toast.success("Przepis odłożono na później");
         } catch (error) {
@@ -159,7 +199,7 @@ export default function RecipeImportsPage() {
         try {
             setPendingAction("approve");
             await persistDraft();
-            await approveImport({recipeImportId: draft.recipe._id});
+            await approveImportAction({recipeImportId: draft.recipe._id});
             skipCurrent();
             toast.success("Przepis został opublikowany");
         } catch (error) {
@@ -181,10 +221,11 @@ export default function RecipeImportsPage() {
         try {
             setPendingAction("save");
             await persistDraft();
-            await addSubstitute({
+            await addSubstituteAction({
                 recipeImportId: draft.recipe._id,
                 substitutionGroup: group,
             });
+            await reloadCurrent();
             toast.success("Dodano zamiennik");
         } catch (error) {
             console.error("add substitute:", error);
@@ -197,7 +238,8 @@ export default function RecipeImportsPage() {
     async function handleRemoveIngredient(ingredientId: Id<"ingredientsImports">) {
         try {
             setPendingAction("save");
-            await removeIngredient({ingredientImportId: ingredientId});
+            await removeImportIngredientAction({ingredientImportId: ingredientId});
+            await reloadCurrent();
             toast.success("Usunięto zamiennik");
         } catch (error) {
             console.error("remove ingredient:", error);

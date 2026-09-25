@@ -46,8 +46,12 @@ export default function FridgePage() {
     }
 
     return (
-        <div className="no-scrollbar h-full overflow-y-auto bg-black pb-28 text-white">
-            <div className="mx-auto min-h-full w-full max-w-md px-5">
+        <>
+            <div aria-hidden className="feed-desktop-background" />
+
+            <div className="relative z-10 h-full">
+                <div className="no-scrollbar h-full overflow-y-auto bg-black pb-28 text-white lg:bg-transparent feed-desktop-scrollbar-gutter">
+                    <div className="mx-auto min-h-full w-full max-w-md px-5">
                 <header className="flex h-16 items-center border-b border-white/10">
                     <Button type="button" variant="ghost" size="icon" aria-label="Wróć" className="text-white hover:bg-white/10 hover:text-white" onClick={() => router.back()}>
                         <ArrowLeft className="size-5" />
@@ -168,7 +172,9 @@ export default function FridgePage() {
                         )}
                     </Button>
                 </main>
+                    </div>
+                </div>
             </div>
-        </div>
+        </>
     )
 }

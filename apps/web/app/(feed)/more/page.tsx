@@ -1,7 +1,7 @@
 import Link from "next/link";
+import {ContactFormSheet} from "@/components/web/contact/ContactFormSheet";
 
 const LINKS = {
-    email: "mailto:kontakt@twoja-strona.pl",
     instagram:
         "https://www.instagram.com/twoje-konto",
     facebook:
@@ -14,8 +14,11 @@ export default function MorePage() {
         "1.0.0";
 
     return (
-        <main className="h-dvh overflow-y-auto bg-black px-5 pb-32 pt-12 text-white">
-            <div className="mx-auto w-full max-w-3xl">
+        <>
+            <div aria-hidden className="feed-desktop-background" />
+
+            <main className="relative z-10 h-dvh overflow-y-auto bg-black px-5 pb-32 pt-12 text-white lg:bg-transparent feed-desktop-scrollbar-gutter">
+                <div className="mx-auto w-full max-w-md">
                 <h1 className="text-4xl font-bold">
                     Więcej
                 </h1>
@@ -72,11 +75,26 @@ export default function MorePage() {
                 </SectionTitle>
 
                 <section className="overflow-hidden rounded-2xl border border-white/10 bg-white/5">
-                    <ExternalMenuLink
-                        href={LINKS.email}
-                        title="Napisz do nas"
-                        description="Wyślij pytanie, opinię lub zgłoszenie."
-                    />
+                    <ContactFormSheet>
+                        <button
+                            type="button"
+                            className="flex min-h-20 w-full items-center gap-4 px-5 py-4 text-left transition-colors hover:bg-white/5"
+                        >
+                            <div className="flex-1">
+                                <h3 className="font-medium">
+                                    Napisz do nas
+                                </h3>
+
+                                <p className="mt-1 text-sm text-neutral-500">
+                                    Wyślij pytanie, opinię lub zgłoszenie.
+                                </p>
+                            </div>
+
+                            <span aria-hidden className="text-neutral-600">
+                                →
+                            </span>
+                        </button>
+                    </ContactFormSheet>
                 </section>
 
                 <SectionTitle>
@@ -131,8 +149,9 @@ export default function MorePage() {
                         {appVersion}
                     </span>
                 </section>
-            </div>
-        </main>
+                </div>
+            </main>
+        </>
     );
 }
 
@@ -183,35 +202,5 @@ function MenuLink({
                 →
             </span>
         </Link>
-    );
-}
-
-function ExternalMenuLink({
-                              href,
-                              title,
-                              description,
-                          }: MenuLinkProps) {
-    return (
-        <a
-            href={href}
-            className="flex min-h-20 items-center gap-4 px-5 py-4 transition-colors hover:bg-white/5"
-        >
-            <div className="flex-1">
-                <h3 className="font-medium">
-                    {title}
-                </h3>
-
-                <p className="mt-1 text-sm text-neutral-500">
-                    {description}
-                </p>
-            </div>
-
-            <span
-                aria-hidden
-                className="text-neutral-600"
-            >
-                →
-            </span>
-        </a>
     );
 }

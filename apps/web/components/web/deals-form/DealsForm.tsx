@@ -27,8 +27,9 @@ function createInitialDeal(): DealsFormValues["deals"][number] {
     return {
         productId: "" as Id<"products">,
         store: "Lidl",
-        dealPrice: 1,
-        regularPrice: 2,
+        dealPrice: undefined,
+        regularPrice: undefined,
+        promotionDescription: "",
         startsAt: toDateTimeLocalValue(startsAt),
         endsAt: toDateTimeLocalValue(endsAt),
     }
@@ -107,6 +108,10 @@ export default function DealsForm() {
                                             <NumberInputController name={`deals.${index}.regularPrice` as const}
                                                                    label="Cena regularna"
                                                                    placeholder="Opcjonalnie"
+                                            />
+                                            <InputController name={`deals.${index}.promotionDescription` as const}
+                                                             label="Opis promocji"
+                                                             placeholder="np. 2 + 1 gratis"
                                             />
                                         </div>
                                         <div className="grid gap-4 sm:grid-cols-2">

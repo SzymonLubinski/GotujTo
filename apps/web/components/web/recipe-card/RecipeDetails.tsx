@@ -9,6 +9,8 @@ import RecipeProducts from "@/components/web/recipe-card/RecipeProducts";
 import RecipeSteps from "@/components/web/recipe-card/RecipeSteps";
 import {RecipeHeader} from "@/components/web/recipe-card/RecipeHeader";
 import {RecipeHeaderNavigation} from "@/components/web/recipe-card/RecipeHeaderNavigation";
+import {ContactFormSheet} from "@/components/web/contact/ContactFormSheet";
+import {Button} from "@/components/ui/button";
 import {type RecipeResultsType} from "@gotujto/shared/types/result-type";
 
 type UnitSystem = "metric" | "customary";
@@ -182,6 +184,19 @@ export function RecipeDetails({result}: RecipeDetailsProps) {
 
             <div className="px-5 pt-4 sm:px-8 lg:mx-auto lg:mt-12 lg:max-w-3xl lg:px-0 lg:pt-0">
                 <RecipeSteps steps={steps} />
+
+                <div className="mt-8 border-t border-border pt-6">
+                    <ContactFormSheet
+                        recipe={{
+                            recipeId: recipe._id,
+                            recipeName: recipe.name,
+                        }}
+                    >
+                        <Button type="button" variant="outline">
+                            Zgłoś błąd w przepisie
+                        </Button>
+                    </ContactFormSheet>
+                </div>
             </div>
         </article>
     );

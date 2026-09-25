@@ -2,8 +2,8 @@ import { Skeleton } from "@/components/ui/skeleton"
 
 export default function FridgeShortsSkeleton() {
     return (
-        <div className="h-full overflow-hidden bg-black">
-            <div className="relative mx-auto h-full w-full max-w-md">
+        <div className="relative z-10 h-full overflow-hidden bg-black lg:bg-transparent">
+            <div className="relative mx-auto h-full w-full max-w-md bg-black">
                 <Skeleton className="absolute inset-0 rounded-none" />
 
                 <div className="absolute inset-x-0 bottom-0 p-6 pb-24 pt-24">
