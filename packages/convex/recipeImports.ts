@@ -445,7 +445,7 @@ export const approve = action({
         try {
             const data: ApprovalData | null = await ctx.runQuery(
                 internal.recipeImports.getApprovalData,
-                args,
+                {recipeImportId: args.recipeImportId},
             );
 
             if (!data) {
