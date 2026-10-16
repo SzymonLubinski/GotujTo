@@ -24,6 +24,7 @@ import {recipeFormSchema, type RecipeFormValues} from "@/lib/schemas/recipe";
 import {uploadImages} from "@/lib/cloud/uploadImages";
 import {uploadVideo} from "@/lib/cloud/uploadVideo";
 import {getUserFacingErrorMessage} from "@/lib/user-facing-error";
+import {ConfirmationSheet} from "@/components/ui/confirmation-sheet";
 import {createRecipe, deleteRecipeAction, registerPendingAdminImageUploadAction, updateRecipe} from "@/app/actions";
 
 type RecipeEditorProps = {
@@ -52,6 +53,7 @@ const emptyValues: RecipeFormValues = {
 export default function RecipeEditor({mode, recipeId, embedded = false, onSubmissionCreated}: RecipeEditorProps) {
     const router = useRouter();
     const [isDeleting, setIsDeleting] = useState(false);
+    const [deleteConfirmationOpen, setDeleteConfirmationOpen] = useState(false);
     const [editedSection, setEditedSection] = useState<"media" | "details" | "ingredients" | "steps" | null>(null);
     const [unitSystem, setUnitSystem] = useState<"metric" | "customary">("metric");
     const initializedRecipeRef = useRef<Id<"recipes"> | null>(null);
@@ -83,16 +85,6 @@ export default function RecipeEditor({mode, recipeId, embedded = false, onSubmis
 
     async function handleDelete() {
         if (mode !== "edit" || !recipeId) {
-            return;
-        }
-
-        const recipeName = form.getValues("step1.name");
-
-        const confirmed = window.confirm(
-            `Czy na pewno chcesz usunąć przepis „${recipeName}”? Tej operacji nie można cofnąć.`,
-        );
-
-        if (!confirmed) {
             return;
         }
 
@@ -255,7 +247,7 @@ export default function RecipeEditor({mode, recipeId, embedded = false, onSubmis
                                     variant="destructive"
                                     aria-label="Usuń przepis"
                                     disabled={isDeleting || form.formState.isSubmitting}
-                                    onClick={handleDelete}
+                                    onClick={() => setDeleteConfirmationOpen(true)}
                                 >
                                     {isDeleting ? (
                                         <Loader2 className="size-4 animate-spin" />
@@ -340,6 +332,16 @@ export default function RecipeEditor({mode, recipeId, embedded = false, onSubmis
                     {editedSection === "ingredients" && <Step2 />}
                     {editedSection === "steps" && <Step3 />}
                 </EditorDialog>
+                <ConfirmationSheet
+                    open={deleteConfirmationOpen}
+                    onOpenChange={setDeleteConfirmationOpen}
+                    title="Usunąć przepis?"
+                    description="Ta operacja jest nieodwracalna."
+                    confirmLabel="Usuń przepis"
+                    onConfirm={() => void handleDelete()}
+                    pending={isDeleting}
+                    destructive
+                />
             </form>
         </FormProvider>
     );

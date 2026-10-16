@@ -30,11 +30,7 @@ export default function DealContent({
     return (
         <div className="pointer-events-none absolute inset-0 z-30 flex h-full w-full flex-col justify-between text-white">
             <div className="max-w-[calc(100%-4.5rem)] p-6 pt-24">
-                <div className="inline-flex rounded-full bg-lime-400 px-3 py-1 text-sm font-semibold text-black">
-                    Promocje
-                </div>
-
-                <div className="mt-3 rounded-2xl border border-white/15 bg-black/65 p-3.5 shadow-xl backdrop-blur-sm">
+                <div className="rounded-2xl border border-white/15 bg-black/65 p-3.5 shadow-xl backdrop-blur-sm">
                     {thrift > 0 && (
                         <p className="text-lg font-bold text-lime-300">
                             Taniej do {formatSavings(thrift)}!
@@ -56,7 +52,7 @@ export default function DealContent({
                 </div>
             </div>
 
-            <div className="bg-linear-to-t from-black via-black/70 to-transparent p-6 pb-32 pr-24 pt-24">
+            <div className="bg-linear-to-t from-black via-black/70 to-transparent p-6 pb-[calc(env(safe-area-inset-bottom)+5rem)] pr-24 pt-24">
                 {children}
             </div>
         </div>

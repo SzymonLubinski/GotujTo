@@ -6,6 +6,7 @@ import {useState, useTransition} from "react";
 
 import {deleteReportedCommentAction, dismissCommentReportsAction} from "@/app/actions";
 import {Button} from "@/components/ui/button";
+import {ConfirmationSheet} from "@/components/ui/confirmation-sheet";
 
 type CommentReportActionsProps = {
     targetType: "recipe" | "blog";
@@ -22,6 +23,7 @@ export function CommentReportActions({targetType, commentId}: CommentReportActio
     const router = useRouter();
     const [isPending, startTransition] = useTransition();
     const [error, setError] = useState<string | null>(null);
+    const [deleteConfirmationOpen, setDeleteConfirmationOpen] = useState(false);
 
     function handleDismiss() {
         setError(null);
@@ -33,10 +35,6 @@ export function CommentReportActions({targetType, commentId}: CommentReportActio
     }
 
     function handleDelete() {
-        if (!window.confirm("Usunac komentarz i wszystkie jego zgloszenia?")) {
-            return;
-        }
-
         setError(null);
         startTransition(() => {
             void deleteReportedCommentAction({targetType, commentId})
@@ -52,12 +50,22 @@ export function CommentReportActions({targetType, commentId}: CommentReportActio
                     {isPending ? <LoaderCircle className="size-3.5 animate-spin" /> : <ShieldCheck className="size-3.5" />}
                     Pozostaw
                 </Button>
-                <Button type="button" variant="destructive" size="sm" disabled={isPending} onClick={handleDelete}>
+                <Button type="button" variant="destructive" size="sm" disabled={isPending} onClick={() => setDeleteConfirmationOpen(true)}>
                     <Trash2 className="size-3.5" />
                     Usun komentarz
                 </Button>
             </div>
             {error && <p role="alert" className="text-xs text-destructive">{error}</p>}
+            <ConfirmationSheet
+                open={deleteConfirmationOpen}
+                onOpenChange={setDeleteConfirmationOpen}
+                title="Usunąć komentarz?"
+                description="Komentarz i wszystkie związane z nim zgłoszenia zostaną trwale usunięte."
+                confirmLabel="Usuń komentarz"
+                onConfirm={handleDelete}
+                pending={isPending}
+                destructive
+            />
         </div>
     );
 }

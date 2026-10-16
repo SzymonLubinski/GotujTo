@@ -27,7 +27,7 @@ export default function ShortItemFooter({item, dealProductIds, fridgeProductIds,
                     query,
                 }}
             >
-                <h2 className="text-3xl font-bold tracking-tight">
+                <h2 className="text-2xl font-bold tracking-tight">
                     {item.recipe.name}
                 </h2>
             </Link>

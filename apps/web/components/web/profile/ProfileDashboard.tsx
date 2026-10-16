@@ -46,12 +46,12 @@ const allowedAvatarTypes = new Set([
     "image/webp",
 ]);
 
-const tabs: {id: ProfileTab; label: string; compactLabel: string; icon: typeof Settings2}[] = [
-    {id: "settings", label: "Ustawienia", compactLabel: "Ustaw.", icon: Settings2},
-    {id: "favorites", label: "Ulubione", compactLabel: "Ulub.", icon: Heart},
-    {id: "fridge", label: "Lodowka", compactLabel: "Lodowka", icon: Refrigerator},
-    {id: "submissions", label: "Dodaj przepis", compactLabel: "Dodaj", icon: ChefHat},
-    {id: "blog", label: "Blog", compactLabel: "Blog", icon: FileText},
+const tabs: {id: ProfileTab; label: string; icon: typeof Settings2}[] = [
+    {id: "settings", label: "Ustawienia", icon: Settings2},
+    {id: "favorites", label: "Ulubione", icon: Heart},
+    {id: "fridge", label: "Lodówka", icon: Refrigerator},
+    {id: "submissions", label: "Dodaj przepis", icon: ChefHat},
+    {id: "blog", label: "Blog", icon: FileText},
 ];
 
 function getErrorMessage(error: unknown) {
@@ -149,18 +149,20 @@ function AuthenticatedProfile({email, name, image, onSignOut, signOutError}: {em
             <main className="relative z-10 h-full overflow-y-auto overscroll-contain bg-black pb-[calc(7rem+env(safe-area-inset-bottom))] pt-8 text-white lg:bg-transparent">
                 <div className="mx-auto w-full max-w-md px-5">
                     <ProfileHeader name={name} image={image} />
-                    <nav aria-label="Profil" className="-mx-5 mt-7 grid grid-cols-5 gap-2 border-y border-white/10 px-5 py-3">
-                        {tabs.map(tab => {
-                            const Icon = tab.icon;
-                            const isActive = activeTab === tab.id;
+                    <nav aria-label="Profil" className="-mx-5 mt-7 border-y border-white/10">
+                        <div className="flex gap-2 overflow-x-auto px-5 py-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                            {tabs.map(tab => {
+                                const Icon = tab.icon;
+                                const isActive = activeTab === tab.id;
 
-                            return (
-                                <button type="button" key={tab.id} aria-current={isActive ? "page" : undefined} aria-label={tab.label} className={isActive ? "flex min-w-0 items-center justify-center gap-1.5 rounded-full bg-lime-400 px-2 py-2 text-xs font-medium text-black" : "flex min-w-0 items-center justify-center gap-1.5 rounded-full bg-white/5 px-2 py-2 text-xs font-medium text-white/65 transition-colors hover:bg-white/10 hover:text-white"} onClick={() => setActiveTab(tab.id)}>
-                                    <Icon className="size-3.5 shrink-0" />
-                                    <span className="truncate">{tab.compactLabel}</span>
-                                </button>
-                            );
-                        })}
+                                return (
+                                    <button type="button" key={tab.id} aria-current={isActive ? "page" : undefined} className={isActive ? "flex shrink-0 items-center gap-2 rounded-full bg-lime-400 px-4 py-2 text-sm font-semibold text-black" : "flex shrink-0 items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm font-medium text-white/75 transition-colors hover:bg-white/10 hover:text-white"} onClick={() => setActiveTab(tab.id)}>
+                                        <Icon className="size-4 shrink-0" />
+                                        <span className="whitespace-nowrap">{tab.label}</span>
+                                    </button>
+                                );
+                            })}
+                        </div>
                     </nav>
 
                     <div className="pt-7">

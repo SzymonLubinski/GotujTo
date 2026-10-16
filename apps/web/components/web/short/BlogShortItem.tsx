@@ -35,7 +35,7 @@ export default function BlogShortItem({blog, index, isActive, isNearby, isMuted,
             <div className="absolute inset-0 z-10"><RecipeMediaCarousel name={blog.title} images={blog.images} videoUrl={blog.videoUrl} isActive={isActive} isNearby={isNearby} isMuted={isMuted} onMutedChange={onMutedChange} priority={index === 0} /></div>
             <div className="pointer-events-none absolute inset-0 z-20 bg-linear-to-t from-black via-black/60 to-black/10" />
 
-            <div className="pointer-events-none absolute inset-0 z-30 flex flex-col justify-between p-6 pb-32 pt-24">
+            <div className="pointer-events-none absolute inset-0 z-30 flex flex-col justify-between p-6 pb-[calc(env(safe-area-inset-bottom)+5rem)] pt-24">
                 <div className="inline-flex w-fit items-center gap-2 rounded-full bg-lime-400 px-3 py-1 text-sm font-semibold text-black">
                     <BookOpenText className="size-4" />
                     Blog · {typeLabels[blog.type]}
@@ -43,7 +43,7 @@ export default function BlogShortItem({blog, index, isActive, isNearby, isMuted,
 
                 <div className="max-w-sm">
                     <Link href={`/blog/${blog._id}`} className="pointer-events-auto inline-block">
-                        <h2 className="text-3xl font-bold tracking-tight text-white">{blog.title}</h2>
+                        <h2 className="text-2xl font-bold tracking-tight text-white">{blog.title}</h2>
                     </Link>
                     <p className="mt-3 line-clamp-6 whitespace-pre-line text-base leading-7 text-white/85">{blog.excerpt}</p>
                     <Link href={`/blog/${blog._id}`} className="pointer-events-auto mt-5 inline-flex items-center gap-2 rounded-full border border-white/30 bg-black/35 px-4 py-2 text-sm font-semibold text-white backdrop-blur-sm transition-colors hover:bg-black/60">

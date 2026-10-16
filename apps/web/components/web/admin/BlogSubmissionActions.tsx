@@ -7,6 +7,7 @@ import {Check, LoaderCircle, X} from "lucide-react";
 import {type Id} from "@gotujto/convex/_generated/dataModel";
 import {approveBlogSubmissionAction, rejectBlogSubmissionAction} from "@/app/actions";
 import {Button} from "@/components/ui/button";
+import {ConfirmationSheet} from "@/components/ui/confirmation-sheet";
 import {Textarea} from "@/components/ui/textarea";
 
 function getErrorMessage(error: unknown) {
@@ -20,10 +21,9 @@ export function BlogSubmissionActions({submissionId, status}: {submissionId: Id<
     const [adminNote, setAdminNote] = useState("");
     const [isPending, startTransition] = useTransition();
     const [error, setError] = useState<string | null>(null);
+    const [approveConfirmationOpen, setApproveConfirmationOpen] = useState(false);
 
     function handleApprove() {
-        if (!window.confirm("Zatwierdzic i opublikowac ten wpis?")) return;
-
         setError(null);
         startTransition(() => {
             void approveBlogSubmissionAction({submissionId})
@@ -57,9 +57,18 @@ export function BlogSubmissionActions({submissionId, status}: {submissionId: Id<
             <Textarea value={adminNote} onChange={event => setAdminNote(event.target.value)} maxLength={500} placeholder="Notatka dla autora przy odrzuceniu (opcjonalnie)" />
             {error && <p role="alert" className="rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">{error}</p>}
             <div className="flex flex-wrap gap-3">
-                <Button type="button" disabled={isPending} onClick={handleApprove}><Check className="size-4" />{isPending && <LoaderCircle className="size-4 animate-spin" />}Zatwierdz i opublikuj</Button>
+                <Button type="button" disabled={isPending} onClick={() => setApproveConfirmationOpen(true)}><Check className="size-4" />{isPending && <LoaderCircle className="size-4 animate-spin" />}Zatwierdz i opublikuj</Button>
                 <Button type="button" disabled={isPending} variant="destructive" onClick={handleReject}><X className="size-4" />Odrzuc</Button>
             </div>
+            <ConfirmationSheet
+                open={approveConfirmationOpen}
+                onOpenChange={setApproveConfirmationOpen}
+                title="Opublikować wpis?"
+                description="Wpis będzie od razu widoczny publicznie na blogu."
+                confirmLabel="Zatwierdź i opublikuj"
+                onConfirm={handleApprove}
+                pending={isPending}
+            />
         </section>
     );
 }

@@ -18,7 +18,7 @@ export default function FridgeContent({ matchPercentage, matchedGroups, required
                 </div>
             </div>
 
-            <div className="bg-linear-to-t from-black via-black/70 to-transparent p-6 pb-32 pr-24 pt-24">
+            <div className="bg-linear-to-t from-black via-black/70 to-transparent p-6 pb-[calc(env(safe-area-inset-bottom)+5rem)] pr-24 pt-24">
                 <p className="mb-3 text-sm text-white/85">
                     Masz {matchedGroups} {getIngredientLabel(matchedGroups)} w lodówce
                 </p>
