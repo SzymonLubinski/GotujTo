@@ -29,7 +29,7 @@ export default function DealContent({
 
     return (
         <div className="pointer-events-none absolute inset-0 z-30 flex h-full w-full flex-col justify-between text-white">
-            <div className="max-w-[calc(100%-4.5rem)] p-6 pt-24">
+            <div className="max-w-[calc(100%-4.5rem)] p-6 pt-20">
                 <div className="rounded-2xl border border-white/15 bg-black/65 p-3.5 shadow-xl backdrop-blur-sm">
                     {thrift > 0 && (
                         <p className="text-lg font-bold text-lime-300">

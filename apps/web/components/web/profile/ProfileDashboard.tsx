@@ -51,7 +51,7 @@ const tabs: {id: ProfileTab; label: string; icon: typeof Settings2}[] = [
     {id: "favorites", label: "Ulubione", icon: Heart},
     {id: "fridge", label: "Lodówka", icon: Refrigerator},
     {id: "submissions", label: "Dodaj przepis", icon: ChefHat},
-    {id: "blog", label: "Blog", icon: FileText},
+    {id: "blog", label: "Dodaj post", icon: FileText},
 ];
 
 function getErrorMessage(error: unknown) {
