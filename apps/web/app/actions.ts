@@ -3,13 +3,14 @@
 import z from "zod";
 import {productSchema} from "@/lib/schemas/product";
 import {fetchAction, fetchMutation, fetchQuery} from "convex/nextjs";
+import {fetchAuthMutation} from "@/lib/auth-server";
 import {api} from "@gotujto/convex/_generated/api";
 import {dealsFormSchema, DealsFormValues} from "@/lib/schemas/deals";
 import {requireAdminRequest} from "@/lib/auth/requireAdminRequest";
+import {getAdminSecret} from "@/lib/auth/getAdminSecret";
 import type {FunctionArgs} from "convex/server";
 import {revalidatePath} from "next/cache";
-import {DeleteObjectCommand} from "@aws-sdk/client-s3";
-import {r2} from "@/lib/cloud/r2";
+import {deleteVideoObject} from "@/lib/cloud/deleteVideo";
 import {Id} from "@gotujto/convex/_generated/dataModel";
 import {headers} from "next/headers";
 import {createHmac} from "node:crypto";
@@ -28,19 +29,22 @@ type UpdateRecipeValues = Omit<
     FunctionArgs<typeof api.recipes.updateRecipe>,
     "adminSecret"
 >;
-function getAdminSecret() {
-    const adminSecret =
-        process.env.ADMIN_CONVEX_SECRET;
 
-    if (!adminSecret) {
-        throw new Error(
-            "Brak zmiennej ADMIN_CONVEX_SECRET.",
-        );
+async function deleteVideoOrQueue(videoKey: string | null | undefined) {
+    if (!videoKey) {
+        return;
     }
 
-    return adminSecret;
+    try {
+        await deleteVideoObject(videoKey);
+    } catch {
+        console.error("Nie udalo sie usunac filmu z magazynu. Dodano ponowna probe.");
+        await fetchMutation(api.userDashboard.enqueueVideoCleanupForAdmin, {
+            adminSecret: getAdminSecret(),
+            videoKey,
+        });
+    }
 }
-
 export async function addProductAction(value: z.infer<typeof productSchema>) {
     await requireAdminRequest();
     try {
@@ -55,7 +59,7 @@ export async function addProductAction(value: z.infer<typeof productSchema>) {
         }
 
         await fetchMutation(api.products.createProduct, {
-            adminSecret: process.env.ADMIN_CONVEX_SECRET,
+            adminSecret: getAdminSecret(),
             name: value.name.toLowerCase(),
             type: value.type,
         })
@@ -132,13 +136,16 @@ export async function updateRecipe(value: UpdateRecipeValues,) {
     await requireAdminRequest();
 
     try {
-        return await fetchMutation(
+        const result = await fetchMutation(
             api.recipes.updateRecipe,
             {
                 ...value,
                 adminSecret: getAdminSecret(),
             },
         );
+        await deleteVideoOrQueue(result.replacedVideoKey);
+
+        return result.recipeId;
     } catch (error) {
         console.error("updateRecipe:", error);
         throw new Error(
@@ -181,6 +188,14 @@ export async function generateImageUploadUrlAction({contentType, size}: ImageUpl
             adminSecret: getAdminSecret(),
         },
     );
+}
+
+export async function registerPendingAdminImageUploadAction(storageId: Id<"_storage">) {
+    await requireAdminRequest();
+    await fetchMutation(api.recipes.registerPendingAdminImageUpload, {
+        adminSecret: getAdminSecret(),
+        storageId,
+    });
 }
 
 type SaveDraftArgs = Omit<
@@ -481,6 +496,105 @@ export async function removeImportIngredientAction(
     );
 }
 
+type ApproveRecipeSubmissionArgs = Omit<
+    FunctionArgs<typeof api.userDashboard.approveRecipeSubmission>,
+    "adminSecret"
+>;
+
+export async function approveRecipeSubmissionAction(
+    args: ApproveRecipeSubmissionArgs,
+) {
+    await requireAdminRequest();
+
+    const recipeId = await fetchMutation(
+        api.userDashboard.approveRecipeSubmission,
+        {
+            ...args,
+            adminSecret: getAdminSecret(),
+        },
+    );
+
+    revalidatePath("/");
+    revalidatePath("/profile");
+    revalidatePath("/admin/recipe-submissions");
+    revalidatePath(`/recipe/${recipeId}`);
+
+    return recipeId;
+}
+
+type RejectRecipeSubmissionArgs = Omit<
+    FunctionArgs<typeof api.userDashboard.rejectRecipeSubmission>,
+    "adminSecret"
+>;
+
+export async function rejectRecipeSubmissionAction(
+    args: RejectRecipeSubmissionArgs,
+) {
+    await requireAdminRequest();
+
+    const result = await fetchMutation(
+        api.userDashboard.rejectRecipeSubmission,
+        {
+            ...args,
+            adminSecret: getAdminSecret(),
+        },
+    );
+
+    await deleteVideoOrQueue(result.videoKey);
+
+    revalidatePath("/profile");
+    revalidatePath("/admin/recipe-submissions");
+}
+
+type ApproveBlogSubmissionArgs = Omit<
+    FunctionArgs<typeof api.userDashboard.approveBlogSubmission>,
+    "adminSecret"
+>;
+
+export async function approveBlogSubmissionAction(
+    args: ApproveBlogSubmissionArgs,
+) {
+    await requireAdminRequest();
+
+    const blogId = await fetchMutation(
+        api.userDashboard.approveBlogSubmission,
+        {
+            ...args,
+            adminSecret: getAdminSecret(),
+        },
+    );
+
+    revalidatePath("/");
+    revalidatePath("/profile");
+    revalidatePath("/admin/blog-submissions");
+
+    return blogId;
+}
+
+type RejectBlogSubmissionArgs = Omit<
+    FunctionArgs<typeof api.userDashboard.rejectBlogSubmission>,
+    "adminSecret"
+>;
+
+export async function rejectBlogSubmissionAction(
+    args: RejectBlogSubmissionArgs,
+) {
+    await requireAdminRequest();
+
+    const result = await fetchMutation(
+        api.userDashboard.rejectBlogSubmission,
+        {
+            ...args,
+            adminSecret: getAdminSecret(),
+        },
+    );
+
+    await deleteVideoOrQueue(result.videoKey);
+
+    revalidatePath("/profile");
+    revalidatePath("/admin/blog-submissions");
+}
+
 export async function deleteRecipeAction(recipeId: Id<"recipes">) {
     await requireAdminRequest();
 
@@ -489,24 +603,56 @@ export async function deleteRecipeAction(recipeId: Id<"recipes">) {
         adminSecret: getAdminSecret(),
     });
 
-    const bucketName = process.env.R2_BUCKET_NAME;
-
-    if (result.videoKey && bucketName) {
-        try {
-            await r2.send(
-                new DeleteObjectCommand({
-                    Bucket: bucketName,
-                    Key: result.videoKey,
-                }),
-            );
-        } catch (error) {
-            console.error("Nie udało się usunąć filmu z R2:", error);
-        }
-    }
+    await deleteVideoOrQueue(result.videoKey);
 
     revalidatePath("/");
     revalidatePath("/admin/recipes");
     revalidatePath(`/recipe/${recipeId}`);
 
     return {success: true};
+}
+
+export async function deleteRecipeSubmissionAction(submissionId: Id<"recipeSubmissions">) {
+    const result = await fetchAuthMutation(
+        api.userDashboard.deleteRecipeSubmission,
+        {submissionId},
+    );
+
+    await deleteVideoOrQueue(result.videoKey);
+    revalidatePath("/profile");
+}
+
+export async function deleteBlogSubmissionAction(submissionId: Id<"blogSubmissions">) {
+    const result = await fetchAuthMutation(
+        api.userDashboard.deleteBlogSubmission,
+        {submissionId},
+    );
+
+    await deleteVideoOrQueue(result.videoKey);
+    revalidatePath("/profile");
+}
+
+export async function deleteReportedCommentAction(args: {
+    targetType: "recipe" | "blog";
+    commentId: string;
+}) {
+    await requireAdminRequest();
+    await fetchMutation(api.userDashboard.deleteReportedComment, {
+        ...args,
+        adminSecret: getAdminSecret(),
+    });
+    revalidatePath("/admin/comment-reports");
+    revalidatePath("/");
+}
+
+export async function dismissCommentReportsAction(args: {
+    targetType: "recipe" | "blog";
+    commentId: string;
+}) {
+    await requireAdminRequest();
+    await fetchMutation(api.userDashboard.dismissCommentReports, {
+        ...args,
+        adminSecret: getAdminSecret(),
+    });
+    revalidatePath("/admin/comment-reports");
 }

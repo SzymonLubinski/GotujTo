@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react"
 import { useRouter } from "next/navigation"
-import { useQuery } from "convex/react"
+import { useMutation, useQuery, useConvexAuth } from "convex/react"
 import { ArrowLeft, ChefHat, LoaderCircle, Plus, Search, X } from "lucide-react"
 import { api } from "@gotujto/convex//_generated/api"
 import type { Doc } from "@gotujto/convex/_generated/dataModel"
@@ -10,11 +10,30 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 
 export default function FridgePage() {
+    const { isAuthenticated, isLoading } = useConvexAuth()
+
+    if (isLoading) {
+        return <FridgeLoading />
+    }
+
+    return <FridgeContent isAuthenticated={isAuthenticated} />
+}
+
+function FridgeContent({ isAuthenticated }: { isAuthenticated: boolean }) {
     const router = useRouter()
     const [isPending, startTransition] = useTransition();
     const [phrase, setPhrase] = useState("")
     const [selectedProducts, setSelectedProducts] = useState<Doc<"products">[]>([])
     const [suggestionsOpen, setSuggestionsOpen] = useState(false)
+    const fridgeProducts = useQuery(
+        api.userDashboard.getFridgeProducts,
+        isAuthenticated ? {} : "skip",
+    )
+    const addFridgeProduct = useMutation(api.userDashboard.addFridgeProduct)
+    const removeFridgeProduct = useMutation(api.userDashboard.removeFridgeProduct)
+    const clearFridgeProducts = useMutation(api.userDashboard.clearFridgeProducts)
+    const products = isAuthenticated ? fridgeProducts ?? [] : selectedProducts
+    const isFridgeLoading = isAuthenticated && fridgeProducts === undefined
 
     const suggestions = useQuery(
         api.products.searchProducts,
@@ -22,22 +41,42 @@ export default function FridgePage() {
     )
 
     const filteredSuggestions = suggestions?.filter((product) => {
-        return !selectedProducts.some((selectedProduct) => selectedProduct._id === product._id)
+        return !products.some((selectedProduct) => selectedProduct._id === product._id)
     })
 
     function handleSelectProduct(product: Doc<"products">) {
-        setSelectedProducts((currentProducts) => [...currentProducts, product])
         setPhrase("")
         setSuggestionsOpen(false)
+
+        if (isAuthenticated) {
+            void addFridgeProduct({ productId: product._id })
+            return
+        }
+
+        setSelectedProducts((currentProducts) => [...currentProducts, product])
     }
 
     function handleRemoveProduct(productId: Doc<"products">["_id"]) {
+        if (isAuthenticated) {
+            void removeFridgeProduct({ productId })
+            return
+        }
+
         setSelectedProducts((currentProducts) => currentProducts.filter((product) => product._id !== productId))
+    }
+
+    function handleClearProducts() {
+        if (isAuthenticated) {
+            void clearFridgeProducts()
+            return
+        }
+
+        setSelectedProducts([])
     }
 
     function handleShowRecipes() {
         const params = new URLSearchParams()
-        selectedProducts.forEach((product) => {
+        products.forEach((product) => {
             params.append("productId", product._id)
         })
         startTransition(() => {
@@ -124,14 +163,32 @@ export default function FridgePage() {
                                 Twoje produkty
                             </h3>
 
-                            <span className="text-sm text-white/50">
-                                {selectedProducts.length}
-                            </span>
+                            <div className="flex items-center gap-3">
+                                <span className="text-sm text-white/50">
+                                    {isFridgeLoading ? "…" : products.length}
+                                </span>
+
+                                {products.length > 0 && (
+                                    <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="sm"
+                                        className="h-auto px-0 text-sm text-red-300 hover:bg-transparent hover:text-red-200"
+                                        onClick={handleClearProducts}
+                                    >
+                                        Usuń wszystkie
+                                    </Button>
+                                )}
+                            </div>
                         </div>
 
-                        {selectedProducts.length > 0 ? (
+                        {isFridgeLoading ? (
+                            <div className="mt-4 flex min-h-24 items-center justify-center rounded-2xl border border-white/10 bg-white/5">
+                                <LoaderCircle aria-label="Pobieranie lodówki" className="size-5 animate-spin text-lime-400" />
+                            </div>
+                        ) : products.length > 0 ? (
                             <div className="mt-4 flex flex-wrap gap-2">
-                                {selectedProducts.map((product) => (
+                                {products.map((product) => (
                                     <div key={product._id} className="flex items-center gap-2 rounded-full bg-white/10 py-2 pl-4 pr-2 text-sm">
                                         <span>{product.name}</span>
 
@@ -153,7 +210,8 @@ export default function FridgePage() {
                     <Button
                         type="button"
                         disabled={
-                            selectedProducts.length === 0 ||
+                            products.length === 0 ||
+                            isFridgeLoading ||
                             isPending
                         }
                         className="mt-10 h-14 w-full bg-lime-400 text-base font-semibold text-black hover:bg-lime-300 disabled:bg-white/10 disabled:text-white/30"
@@ -175,6 +233,17 @@ export default function FridgePage() {
                     </div>
                 </div>
             </div>
+        </>
+    )
+}
+
+function FridgeLoading() {
+    return (
+        <>
+            <div aria-hidden className="feed-desktop-background" />
+            <main className="relative z-10 flex h-full items-center justify-center bg-black text-white lg:bg-transparent">
+                <LoaderCircle aria-label="Ładowanie lodówki" className="size-6 animate-spin text-lime-400" />
+            </main>
         </>
     )
 }

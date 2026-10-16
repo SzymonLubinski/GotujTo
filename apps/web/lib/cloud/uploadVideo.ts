@@ -6,8 +6,11 @@ type UploadVideoResponse = {
 };
 
 
-export async function uploadVideo(file: File): Promise<string> {
-    const response = await fetch("/api/uploads/video", {
+export async function uploadVideo(
+    file: File,
+    endpoint = "/api/uploads/video",
+): Promise<string> {
+    const response = await fetch(endpoint, {
         method: "POST",
         headers: {
             "Content-Type": "application/json",

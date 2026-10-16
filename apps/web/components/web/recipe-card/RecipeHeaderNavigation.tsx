@@ -1,18 +1,49 @@
 "use client";
 
+import {useEffect, useRef} from "react";
 import {useRouter} from "next/navigation";
 import {ArrowLeft} from "lucide-react";
 import {Button} from "@/components/ui/button";
 
 const RETURN_URL_KEY = "gotujto:recipe-return-url";
+const RECIPE_RETURNING_KEY = "gotujto:recipe-returning";
 
 export function RecipeHeaderNavigation() {
     const router = useRouter();
+    const didAddHistoryTrapRef = useRef(false);
+
+    useEffect(() => {
+        if (!sessionStorage.getItem(RETURN_URL_KEY)) {
+            return;
+        }
+
+        if (!didAddHistoryTrapRef.current) {
+            window.history.pushState(window.history.state, "", window.location.href);
+            didAddHistoryTrapRef.current = true;
+        }
+
+        const handleBrowserBack = () => {
+            const returnUrl = sessionStorage.getItem(RETURN_URL_KEY);
+
+            if (returnUrl) {
+                sessionStorage.setItem(RECIPE_RETURNING_KEY, "true");
+                sessionStorage.removeItem(RETURN_URL_KEY);
+                window.location.replace(returnUrl);
+            }
+        };
+
+        window.addEventListener("popstate", handleBrowserBack);
+
+        return () => {
+            window.removeEventListener("popstate", handleBrowserBack);
+        };
+    }, []);
 
     function handleBack() {
         const returnUrl = sessionStorage.getItem(RETURN_URL_KEY);
 
         if (returnUrl) {
+            sessionStorage.setItem(RECIPE_RETURNING_KEY, "true");
             sessionStorage.removeItem(RETURN_URL_KEY);
             window.location.replace(returnUrl);
             return;

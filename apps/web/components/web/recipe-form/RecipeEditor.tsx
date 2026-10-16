@@ -3,7 +3,7 @@
 import {useEffect, useRef, useState, type ReactNode} from "react";
 import {FormProvider, useForm} from "react-hook-form";
 import {zodResolver} from "@hookform/resolvers/zod";
-import {useQuery} from "convex/react";
+import {useMutation, useQuery} from "convex/react";
 import {useRouter} from "next/navigation";
 import Image from "next/image";
 import {ArrowLeft, Clock, Loader2, Pencil, Save, Trash2, Users, X} from "lucide-react";;
@@ -23,11 +23,14 @@ import {dietTypes, mealTypes, occasions} from "@gotujto/shared/data/stableData";
 import {recipeFormSchema, type RecipeFormValues} from "@/lib/schemas/recipe";
 import {uploadImages} from "@/lib/cloud/uploadImages";
 import {uploadVideo} from "@/lib/cloud/uploadVideo";
-import {createRecipe, deleteRecipeAction, updateRecipe} from "@/app/actions";
+import {getUserFacingErrorMessage} from "@/lib/user-facing-error";
+import {createRecipe, deleteRecipeAction, registerPendingAdminImageUploadAction, updateRecipe} from "@/app/actions";
 
 type RecipeEditorProps = {
-    mode: "create" | "edit";
+    mode: "create" | "edit" | "submission";
     recipeId?: Id<"recipes">;
+    embedded?: boolean;
+    onSubmissionCreated?: () => void;
 };
 
 const emptyValues: RecipeFormValues = {
@@ -46,7 +49,7 @@ const emptyValues: RecipeFormValues = {
     step3: [{description: ""}],
 };
 
-export default function RecipeEditor({mode, recipeId}: RecipeEditorProps) {
+export default function RecipeEditor({mode, recipeId, embedded = false, onSubmissionCreated}: RecipeEditorProps) {
     const router = useRouter();
     const [isDeleting, setIsDeleting] = useState(false);
     const [editedSection, setEditedSection] = useState<"media" | "details" | "ingredients" | "steps" | null>(null);
@@ -55,6 +58,13 @@ export default function RecipeEditor({mode, recipeId}: RecipeEditorProps) {
     const editData = useQuery(
         api.recipes.getRecipeForEditing,
         mode === "edit" && recipeId ? {recipeId} : "skip",
+    );
+    const createRecipeSubmission = useMutation(api.userDashboard.createRecipeSubmission);
+    const generateSubmissionImageUploadUrl = useMutation(
+        api.userDashboard.generateRecipeSubmissionImageUploadUrl,
+    );
+    const registerPendingSubmissionImage = useMutation(
+        api.userDashboard.registerPendingSubmissionImage,
     );
 
     const form = useForm<RecipeFormValues>({
@@ -114,7 +124,12 @@ export default function RecipeEditor({mode, recipeId}: RecipeEditorProps) {
                             file: image.file,
                             previewUrl: image.previewUrl,
                         },
-                    ]);
+                    ],
+                    mode === "submission" ? generateSubmissionImageUploadUrl : undefined,
+                    mode === "submission"
+                        ? storageId => registerPendingSubmissionImage({storageId})
+                        : registerPendingAdminImageUploadAction,
+                    );
 
                     if (!imageId) {
                         throw new Error(
@@ -130,6 +145,9 @@ export default function RecipeEditor({mode, recipeId}: RecipeEditorProps) {
                 ? "file" in values.step1.video
                     ? await uploadVideo(
                         values.step1.video.file,
+                        mode === "submission"
+                            ? "/api/uploads/video?purpose=recipe-submission"
+                            : undefined,
                     )
                     : values.step1.video.videoKey
                 : undefined;
@@ -161,6 +179,28 @@ export default function RecipeEditor({mode, recipeId}: RecipeEditorProps) {
                 ),
             };
 
+            if (mode === "submission") {
+                await createRecipeSubmission({
+                    recipe: {
+                        name: payload.step1.name,
+                        description: payload.step1.description ?? "",
+                        cookingMinutes: payload.step1.cookingMinutes,
+                        servings: payload.step1.servings,
+                        images: payload.step1.images,
+                        videoKey: payload.step1.videoKey,
+                        diets: payload.step1.diets,
+                        types: payload.step1.types,
+                        occasions: payload.step1.occasions,
+                        ingredientGroups: payload.step2,
+                        recipeSteps: payload.step3,
+                    },
+                });
+
+                toast.success("Przepis zostal wyslany do weryfikacji");
+                onSubmissionCreated?.();
+                return;
+            }
+
             const savedRecipeId =
                 mode === "edit" && recipeId
                     ? await updateRecipe({
@@ -179,11 +219,12 @@ export default function RecipeEditor({mode, recipeId}: RecipeEditorProps) {
         } catch (error) {
             console.error("RecipeEditor:", error);
 
-            toast.error(
-                error instanceof Error
-                    ? error.message
-                    : "Nie udało się zapisać przepisu",
-            );
+            toast.error(getUserFacingErrorMessage(
+                error,
+                mode === "submission"
+                    ? "Nie udało się wysłać przepisu do weryfikacji. Spróbuj ponownie."
+                    : "Nie udało się zapisać przepisu. Spróbuj ponownie.",
+            ));
         }
     }
 
@@ -202,10 +243,10 @@ export default function RecipeEditor({mode, recipeId}: RecipeEditorProps) {
     return (
         <FormProvider {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)}>
-                <article className="mx-auto min-h-screen w-full max-w-3xl bg-background pb-28">
+                <article className={`mx-auto w-full max-w-3xl bg-background ${embedded ? "min-h-0" : "min-h-screen pb-28"}`}>
                     <div className="sticky top-0 z-40 flex items-center justify-between border-b bg-background/90 px-4 py-3 backdrop-blur">
-                        <Button type="button" size="icon" variant="ghost" onClick={() => router.back()} aria-label="Wróć"><ArrowLeft className="size-5" /></Button>
-                        <span className="text-sm font-medium">{mode === "edit" ? "Edycja przepisu" : "Nowy przepis"}</span>
+                        {embedded ? <div className="size-9" /> : <Button type="button" size="icon" variant="ghost" onClick={() => router.back()} aria-label="Wróć"><ArrowLeft className="size-5" /></Button>}
+                        <span className="text-sm font-medium">{mode === "edit" ? "Edycja przepisu" : mode === "submission" ? "Dodaj przepis" : "Nowy przepis"}</span>
                         <div className="flex items-center gap-2">
                             {mode === "edit" && (
                                 <Button
@@ -233,7 +274,7 @@ export default function RecipeEditor({mode, recipeId}: RecipeEditorProps) {
                                 ) : (
                                     <Save className="size-4" />
                                 )}
-                                Zapisz
+                                {mode === "submission" ? "Wyslij do weryfikacji" : "Zapisz"}
                             </Button>
                         </div>
                     </div>

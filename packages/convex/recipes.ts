@@ -25,6 +25,54 @@ const allowedImageTypes = new Set([
     "image/webp",
 ]);
 
+function isManagedAdminVideoKey(videoKey: string) {
+    return videoKey.startsWith("recipes/") && videoKey.length <= 300;
+}
+
+async function enqueueAdminMediaCleanup(ctx: MutationCtx, videoKey: string | undefined) {
+    if (!videoKey || !isManagedAdminVideoKey(videoKey)) {
+        return;
+    }
+
+    const existingEntry = await ctx.db
+        .query("mediaCleanupQueue")
+        .withIndex("by_videoKey", index => index.eq("videoKey", videoKey))
+        .unique();
+
+    if (!existingEntry) {
+        await ctx.db.insert("mediaCleanupQueue", {
+            videoKey,
+            createdAt: Date.now(),
+            attempts: 0,
+        });
+    }
+}
+
+async function consumePendingAdminMedia(
+    ctx: MutationCtx,
+    imageIds: Id<"_storage">[],
+    videoKey: string | undefined,
+) {
+    const pendingImages = await Promise.all([...new Set(imageIds)].map(storageId =>
+        ctx.db
+            .query("pendingAdminImageUploads")
+            .withIndex("by_storageId", index => index.eq("storageId", storageId))
+            .unique(),
+    ));
+    const pendingVideo = videoKey
+        ? await ctx.db
+            .query("pendingAdminVideoUploads")
+            .withIndex("by_videoKey", index => index.eq("videoKey", videoKey))
+            .unique()
+        : null;
+
+    await Promise.all([
+        ...pendingImages.filter((upload): upload is NonNullable<typeof upload> => upload !== null)
+            .map(upload => ctx.db.delete(upload._id)),
+        ...(pendingVideo ? [ctx.db.delete(pendingVideo._id)] : []),
+    ]);
+}
+
 const productObjectV = v.object({
     productId: v.id("products"),
     metricQuantity: v.number(),
@@ -62,6 +110,8 @@ type RecipeCandidate = {
     requiredGroups: number;
     matchPercentage: number;
     thrift: number;
+    dealIngredientCount: number;
+    dealStores: Doc<"deals">["store"][];
 };
 
 type RecipeCandidateWithDetails = RecipeCandidate & {
@@ -124,11 +174,20 @@ export const createRecipe = mutation({
             ctx,
             args.step1.images,
         );
+        if (args.step1.videoKey && !isManagedAdminVideoKey(args.step1.videoKey)) {
+            throw new ConvexError({
+                code: "INVALID_VIDEO",
+                message: "Nieprawidlowy film przepisu.",
+            });
+        }
         try {
+            await consumePendingAdminMedia(ctx, args.step1.images, args.step1.videoKey);
             const recipeId = await ctx.db.insert("recipes", {
                 authorId: "David",
                 authorName: "David",
                 favorite: 0,
+                favoriteCount: 0,
+                commentCount: 0,
                 requiredIngredientGroups: args.step2.length,
                 ...args.step1,
             });
@@ -193,6 +252,12 @@ export const updateRecipe = mutation({
             ctx,
             args.step1.images,
         );
+        if (args.step1.videoKey && !isManagedAdminVideoKey(args.step1.videoKey)) {
+            throw new ConvexError({
+                code: "INVALID_VIDEO",
+                message: "Nieprawidlowy film przepisu.",
+            });
+        }
         const recipe = await ctx.db.get(args.recipeId);
 
         if (!recipe) {
@@ -203,7 +268,12 @@ export const updateRecipe = mutation({
             ctx.db.query("ingredients").withIndex("by_recipeId", index => index.eq("recipeId", args.recipeId)).collect(),
             ctx.db.query("steps").withIndex("by_recipeId", index => index.eq("recipeId", args.recipeId)).collect(),
         ]);
+        const removedImageIds = recipe.images.filter(imageId => !args.step1.images.includes(imageId));
+        const replacedVideoKey = recipe.videoKey !== args.step1.videoKey
+            ? recipe.videoKey
+            : undefined;
 
+        await consumePendingAdminMedia(ctx, args.step1.images, args.step1.videoKey);
         await ctx.db.patch(args.recipeId, {
             ...args.step1,
             requiredIngredientGroups: args.step2.length,
@@ -211,6 +281,7 @@ export const updateRecipe = mutation({
         await Promise.all([
             ...ingredients.map(ingredient => ctx.db.delete(ingredient._id)),
             ...steps.map(step => ctx.db.delete(step._id)),
+            ...removedImageIds.map(imageId => ctx.storage.delete(imageId)),
         ]);
 
         const newIngredients = args.step2.flatMap((group, groupIndex) => [
@@ -239,7 +310,10 @@ export const updateRecipe = mutation({
             })),
         ]);
 
-        return args.recipeId;
+        return {
+            recipeId: args.recipeId,
+            replacedVideoKey: replacedVideoKey ?? null,
+        };
     },
 });
 
@@ -250,6 +324,103 @@ export const generateImageUploadUrl = mutation({
     handler: async (ctx, args) => {
         requireAdmin(args.adminSecret);
         return await ctx.storage.generateUploadUrl();
+    },
+});
+
+export const registerPendingAdminImageUpload = mutation({
+    args: {
+        adminSecret: v.string(),
+        storageId: v.id("_storage"),
+    },
+    handler: async (ctx, args) => {
+        requireAdmin(args.adminSecret);
+        await validateStoredImages(ctx, [args.storageId]);
+        const existingUpload = await ctx.db
+            .query("pendingAdminImageUploads")
+            .withIndex("by_storageId", index => index.eq("storageId", args.storageId))
+            .unique();
+
+        if (!existingUpload) {
+            await ctx.db.insert("pendingAdminImageUploads", {
+                storageId: args.storageId,
+                createdAt: Date.now(),
+            });
+        }
+    },
+});
+
+export const registerPendingAdminVideoUpload = mutation({
+    args: {
+        adminSecret: v.string(),
+        videoKey: v.string(),
+    },
+    handler: async (ctx, args) => {
+        requireAdmin(args.adminSecret);
+
+        if (!isManagedAdminVideoKey(args.videoKey)) {
+            throw new ConvexError({
+                code: "INVALID_VIDEO",
+                message: "Nieprawidlowy film przepisu.",
+            });
+        }
+
+        const existingUpload = await ctx.db
+            .query("pendingAdminVideoUploads")
+            .withIndex("by_videoKey", index => index.eq("videoKey", args.videoKey))
+            .unique();
+
+        if (!existingUpload) {
+            await ctx.db.insert("pendingAdminVideoUploads", {
+                videoKey: args.videoKey,
+                createdAt: Date.now(),
+            });
+        }
+    },
+});
+
+export const cleanupStalePendingAdminImageUploads = mutation({
+    args: {
+        adminSecret: v.string(),
+        before: v.number(),
+        limit: v.optional(v.number()),
+    },
+    handler: async (ctx, args) => {
+        requireAdmin(args.adminSecret);
+        const limit = Math.min(Math.max(Math.floor(args.limit ?? 50), 1), 100);
+        const uploads = await ctx.db
+            .query("pendingAdminImageUploads")
+            .withIndex("by_createdAt", index => index.lte("createdAt", args.before))
+            .take(limit);
+
+        await Promise.all(uploads.flatMap(upload => [
+            ctx.storage.delete(upload.storageId),
+            ctx.db.delete(upload._id),
+        ]));
+
+        return uploads.length;
+    },
+});
+
+export const moveStalePendingAdminVideoUploadsToCleanup = mutation({
+    args: {
+        adminSecret: v.string(),
+        before: v.number(),
+        limit: v.optional(v.number()),
+    },
+    handler: async (ctx, args) => {
+        requireAdmin(args.adminSecret);
+        const limit = Math.min(Math.max(Math.floor(args.limit ?? 50), 1), 100);
+        const uploads = await ctx.db
+            .query("pendingAdminVideoUploads")
+            .withIndex("by_createdAt", index => index.lte("createdAt", args.before))
+            .take(limit);
+
+        await Promise.all(uploads.flatMap(upload => [
+            enqueueAdminMediaCleanup(ctx, upload.videoKey),
+            ctx.db.delete(upload._id),
+        ]));
+
+        return uploads.length;
     },
 });
 
@@ -720,14 +891,7 @@ export const getRecipesByDeals = query({
         const candidates = await getRecipeCandidates(
             ctx,
             [...bestDealByProductId.keys()],
-            new Map(
-                [...bestDealByProductId.entries()].map(
-                    ([productId, deal]) => [
-                        productId,
-                        deal.lowerBy ?? 0,
-                    ],
-                ),
-            ),
+            bestDealByProductId,
         );
         candidates.sort(compareRecipeCandidates);
         const selectedCandidates = await getCandidateDetails(
@@ -754,6 +918,8 @@ export const getRecipesByDeals = query({
                         source: "deals" as const,
                         matchedGroups: match.matchedGroups,
                         thrift: candidate.thrift,
+                        dealIngredientCount: candidate.dealIngredientCount,
+                        dealStores: candidate.dealStores,
                         matchPercentage: match.matchPercentage,
                         dealProductIds: [...candidate.matchedProductIds],
                         fridgeProductIds: [] as Id<"products">[],
@@ -839,11 +1005,27 @@ export const getRecipesPaginated = query({
             };
         }
 
-        const pageRecipes = await ctx.db
-            .query("recipes")
-            .withIndex("by_feedRank", index =>
-                index.gte("feedRank", 0),
-            )
+        const feedCursor = parseFeedCursor(args.paginationOpts.cursor);
+        const rankAnchor = getSeededScore("feed-anchor", args.randomSeed);
+        const isWrapping = feedCursor?.phase === "before";
+        const paginationOpts = {
+            ...args.paginationOpts,
+            cursor: feedCursor?.cursor ?? null,
+        };
+        const rankedRecipeQuery = isWrapping
+            ? ctx.db
+                .query("recipes")
+                .withIndex("by_feedRank", index =>
+                    index
+                        .gte("feedRank", 0)
+                        .lt("feedRank", rankAnchor),
+                )
+            : ctx.db
+                .query("recipes")
+                .withIndex("by_feedRank", index =>
+                    index.gte("feedRank", rankAnchor),
+                );
+        const pageRecipes = await rankedRecipeQuery
             .filter(query =>
                 query.and(
                     query.lte(
@@ -855,10 +1037,35 @@ export const getRecipesPaginated = query({
                     ),
                 ),
             )
-            .paginate(args.paginationOpts);
+            .paginate(paginationOpts);
+
+        const recipes = pageRecipes.page;
+        let isDone = pageRecipes.isDone;
+        let continueCursor = pageRecipes.continueCursor;
+
+        if (!isWrapping && pageRecipes.isDone) {
+            // Convex allows only one `.paginate()` call in a single function.
+            // Continue with the lower part of the circular ranking in the next
+            // client request instead of trying to fill this page with a second query.
+            isDone = false;
+            continueCursor = stringifyFeedCursor({
+                phase: "before",
+                cursor: null,
+            });
+        } else if (!isWrapping && !pageRecipes.isDone) {
+            continueCursor = stringifyFeedCursor({
+                phase: "after",
+                cursor: pageRecipes.continueCursor,
+            });
+        } else if (isWrapping && !pageRecipes.isDone) {
+            continueCursor = stringifyFeedCursor({
+                phase: "before",
+                cursor: pageRecipes.continueCursor,
+            });
+        }
 
         const page = await Promise.all(
-            pageRecipes.page.map(async recipe => {
+            recipes.map(async recipe => {
                 const media =
                     await getRecipeMedia(ctx, recipe);
 
@@ -878,28 +1085,39 @@ export const getRecipesPaginated = query({
 
         return {
             page,
-            isDone: pageRecipes.isDone,
-            continueCursor: pageRecipes.continueCursor,
+            isDone,
+            continueCursor,
         };
     },
 });
 
 async function getRecipeMedia(ctx: QueryCtx, recipe: Doc<"recipes">) {
-    const imageUrls = await Promise.all(
-        recipe.images.map(imageId => ctx.storage.getUrl(imageId)),
-    );
+    const [imageUrls, publicAuthor] = await Promise.all([
+        Promise.all(recipe.images.map(imageId => ctx.storage.getUrl(imageId))),
+        recipe.authorUserId
+            ? ctx.db
+                .query("publicProfiles")
+                .withIndex("by_userId", index => index.eq("userId", recipe.authorUserId!))
+                .unique()
+            : null,
+    ]);
     const images = imageUrls.filter((url): url is string => url !== null);
     const videoKey = recipe.videoKey
         ? `${process.env.R2_PUBLIC_URL}/${recipe.videoKey}`
         : undefined;
 
-    return {images, videoKey};
+    return {
+        images,
+        videoKey,
+        ...(publicAuthor ? {authorName: publicAuthor.name} : {}),
+        ...(publicAuthor?.image ? {authorAvatarUrl: publicAuthor.image} : {}),
+    };
 }
 
 async function getRecipeCandidates(
     ctx: QueryCtx,
     productIds: Id<"products">[],
-    discountsByProductId?: ReadonlyMap<Id<"products">, number>,
+    dealsByProductId?: ReadonlyMap<Id<"products">, Doc<"deals">>,
 ): Promise<RecipeCandidate[]> {
     const uniqueProductIds = [...new Set(productIds)];
 
@@ -923,7 +1141,7 @@ async function getRecipeCandidates(
             matchedProductIds: Set<Id<"products">>;
             matchedGroups: Set<number>;
             requiredGroups: number;
-            discountsByGroup: Map<number, number>;
+            dealsByGroup: Map<number, Doc<"deals">>;
         }
     >();
 
@@ -932,7 +1150,7 @@ async function getRecipeCandidates(
             matchedProductIds: new Set<Id<"products">>(),
             matchedGroups: new Set<number>(),
             requiredGroups: 0,
-            discountsByGroup: new Map<number, number>(),
+            dealsByGroup: new Map<number, Doc<"deals">>(),
         };
 
         candidate.matchedProductIds.add(ingredient.productId);
@@ -942,14 +1160,17 @@ async function getRecipeCandidates(
             ingredient.requiredIngredientGroups ?? 0,
         );
 
-        const discount = discountsByProductId?.get(ingredient.productId) ?? 0;
-        const currentGroupDiscount = candidate.discountsByGroup.get(
+        const deal = dealsByProductId?.get(ingredient.productId);
+        const currentGroupDeal = candidate.dealsByGroup.get(
             ingredient.substitutionGroup,
-        ) ?? 0;
-        candidate.discountsByGroup.set(
-            ingredient.substitutionGroup,
-            Math.max(currentGroupDiscount, discount),
         );
+
+        if (
+            deal
+            && (!currentGroupDeal || (deal.lowerBy ?? 0) > (currentGroupDeal.lowerBy ?? 0))
+        ) {
+            candidate.dealsByGroup.set(ingredient.substitutionGroup, deal);
+        }
         candidatesByRecipeId.set(ingredient.recipeId, candidate);
     }
 
@@ -959,6 +1180,8 @@ async function getRecipeCandidates(
                 return [];
             }
 
+            const matchedDeals = [...candidate.dealsByGroup.values()];
+
             return [{
                 recipeId,
                 matchedProductIds: candidate.matchedProductIds,
@@ -967,8 +1190,10 @@ async function getRecipeCandidates(
                 matchPercentage: Math.round(
                     (candidate.matchedGroups.size / candidate.requiredGroups) * 100,
                 ),
-                thrift: [...candidate.discountsByGroup.values()]
-                    .reduce((total, discount) => total + discount, 0),
+                thrift: matchedDeals
+                    .reduce((total, deal) => total + (deal.lowerBy ?? 0), 0),
+                dealIngredientCount: matchedDeals.length,
+                dealStores: [...new Set(matchedDeals.map(deal => deal.store))],
             }];
         },
     );
@@ -1098,17 +1323,50 @@ function getFeedRank(recipeId: Id<"recipes">) {
 
 function getSeededScore(
     seed: string,
-    recipeId: Id<"recipes">,
+    value: string,
 ) {
-    const value = `${seed}:${recipeId}`;
+    const input = `${seed}:${value}`;
     let hash = 2166136261;
 
-    for (let index = 0; index < value.length; index++) {
-        hash ^= value.charCodeAt(index);
+    for (let index = 0; index < input.length; index++) {
+        hash ^= input.charCodeAt(index);
         hash = Math.imul(hash, 16777619);
     }
 
     return hash >>> 0;
+}
+
+type FeedCursor = {
+    phase: "after" | "before";
+    cursor: string | null;
+};
+
+function parseFeedCursor(cursor: string | null): FeedCursor | null {
+    if (!cursor) {
+        return null;
+    }
+
+    try {
+        const parsed = JSON.parse(cursor) as Partial<FeedCursor>;
+
+        if (
+            (parsed.phase !== "after" && parsed.phase !== "before") ||
+            (parsed.cursor !== null && typeof parsed.cursor !== "string")
+        ) {
+            return null;
+        }
+
+        return {
+            phase: parsed.phase,
+            cursor: parsed.cursor,
+        };
+    } catch {
+        return null;
+    }
+}
+
+function stringifyFeedCursor(cursor: FeedCursor) {
+    return JSON.stringify(cursor);
 }
 
 export const deleteRecipe = mutation({
@@ -1128,7 +1386,7 @@ export const deleteRecipe = mutation({
             });
         }
 
-        const [ingredients, steps] = await Promise.all([
+        const [ingredients, steps, favorites, comments] = await Promise.all([
             ctx.db
                 .query("ingredients")
                 .withIndex("by_recipeId", index => index.eq("recipeId", args.recipeId))
@@ -1137,11 +1395,30 @@ export const deleteRecipe = mutation({
                 .query("steps")
                 .withIndex("by_recipeId", index => index.eq("recipeId", args.recipeId))
                 .collect(),
+            ctx.db
+                .query("favoriteRecipes")
+                .withIndex("by_recipeId", index => index.eq("recipeId", args.recipeId))
+                .collect(),
+            ctx.db
+                .query("comments")
+                .withIndex("by_recipe_createdAt", index => index.eq("recipeId", args.recipeId))
+                .collect(),
         ]);
+        const commentReports = await Promise.all(
+            comments.map(comment => ctx.db
+                .query("commentReports")
+                .withIndex("by_target", index =>
+                    index.eq("targetType", "recipe").eq("commentId", comment._id),
+                )
+                .collect()),
+        );
 
         await Promise.all([
             ...ingredients.map(ingredient => ctx.db.delete(ingredient._id)),
             ...steps.map(step => ctx.db.delete(step._id)),
+            ...favorites.map(favorite => ctx.db.delete(favorite._id)),
+            ...comments.map(comment => ctx.db.delete(comment._id)),
+            ...commentReports.flat().map(report => ctx.db.delete(report._id)),
             ...recipe.images.map(imageId => ctx.storage.delete(imageId)),
         ]);
 

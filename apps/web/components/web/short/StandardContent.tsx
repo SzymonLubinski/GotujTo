@@ -15,7 +15,7 @@ export default function StandardContent({children}: StandardContentProps) {
                 </div>
             </div>
 
-            <div className="bg-linear-to-t from-black via-black/70 to-transparent p-6 pb-32 pt-24">
+            <div className="bg-linear-to-t from-black via-black/70 to-transparent p-6 pb-32 pr-24 pt-24">
                 {children}
             </div>
         </div>

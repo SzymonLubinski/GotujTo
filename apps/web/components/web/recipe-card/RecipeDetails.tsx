@@ -1,6 +1,7 @@
 "use client";
 
 import {useState} from "react";
+import Link from "next/link";
 import {Clock, Ruler, CakeSlice, ChefHat } from "lucide-react";
 import {Card, CardContent} from "@/components/ui/card";
 import {Progress} from "@/components/ui/progress";
@@ -10,6 +11,9 @@ import RecipeSteps from "@/components/web/recipe-card/RecipeSteps";
 import {RecipeHeader} from "@/components/web/recipe-card/RecipeHeader";
 import {RecipeHeaderNavigation} from "@/components/web/recipe-card/RecipeHeaderNavigation";
 import {ContactFormSheet} from "@/components/web/contact/ContactFormSheet";
+import {FavoriteRecipeButton} from "@/components/web/recipe-card/FavoriteRecipeButton";
+import {RecipeCommentsSection} from "@/components/web/recipe-card/RecipeComments";
+import {ShareButton} from "@/components/web/ShareButton";
 import {Button} from "@/components/ui/button";
 import {type RecipeResultsType} from "@gotujto/shared/types/result-type";
 
@@ -72,9 +76,20 @@ export function RecipeDetails({result}: RecipeDetailsProps) {
                 </div>
 
                 <section className="min-w-0 space-y-6 px-5 py-8 sm:px-8 lg:p-0">
-                    <h2 className="text-2xl font-bold tracking-tight">
-                        {recipe.name}
-                    </h2>
+                    <div className="flex items-start justify-between gap-4">
+                        <h2 className="text-2xl font-bold tracking-tight">
+                            {recipe.name}
+                        </h2>
+
+                        <div className="flex shrink-0 items-center gap-2">
+                            <FavoriteRecipeButton recipeId={recipe._id} />
+                            <ShareButton
+                                path={`/recipe/${recipe._id}`}
+                                title={recipe.name}
+                                text={`Zobacz przepis: ${recipe.name}`}
+                            />
+                        </div>
+                    </div>
 
                     <div className="flex flex-wrap items-center gap-x-5 gap-y-3 text-sm text-white/90 sm:text-base">
                         <div className="flex items-center gap-3">
@@ -91,10 +106,15 @@ export function RecipeDetails({result}: RecipeDetailsProps) {
                             </span>
                         </div>
                         <div className="flex items-center gap-3">
-                            <ChefHat className="size-5" />
-                            <span>
-                                {recipe.authorId}
-                            </span>
+                            {recipe.authorAvatarUrl ? (
+                                <img
+                                    src={recipe.authorAvatarUrl}
+                                    alt=""
+                                    aria-hidden
+                                    className="size-6 rounded-full object-cover"
+                                />
+                            ) : <ChefHat className="size-5" />}
+                            {recipe.authorUserId ? <Link href={`/u/${recipe.authorUserId}`} className="transition-colors hover:text-lime-300">{recipe.authorName ?? recipe.authorId}</Link> : <span>{recipe.authorName ?? recipe.authorId}</span>}
                         </div>
                     </div>
                     {recipe.description && (
@@ -184,6 +204,10 @@ export function RecipeDetails({result}: RecipeDetailsProps) {
 
             <div className="px-5 pt-4 sm:px-8 lg:mx-auto lg:mt-12 lg:max-w-3xl lg:px-0 lg:pt-0">
                 <RecipeSteps steps={steps} />
+
+                <div className="mt-8 border-t border-border pt-6">
+                    <RecipeCommentsSection recipeId={recipe._id} />
+                </div>
 
                 <div className="mt-8 border-t border-border pt-6">
                     <ContactFormSheet

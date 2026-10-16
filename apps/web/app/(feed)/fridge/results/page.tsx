@@ -1,6 +1,6 @@
 "use client";
 
-import {type MouseEvent, useRef, useState, useEffect} from "react";
+import {type MouseEvent, useRef, useState, useEffect, useMemo} from "react";
 import {useRouter, useSearchParams} from "next/navigation";
 import {usePaginatedQuery, useQuery} from "convex/react";
 import {api} from "@gotujto/convex/_generated/api";
@@ -9,10 +9,12 @@ import FridgeShortsHeader from "@/components/web/feed/FridgeShortsHeader";
 import FridgeShortsSkeleton from "@/components/web/feed/FridgeShortsSkeleton";
 import ShortItem from "@/components/web/short/ShortItem";
 import {useShortFeed} from "@/lib/hooks/useShortFeed";
+import {orderBySessionSeed} from "@/lib/utils";
 
 const INITIAL_SHORTS_COUNT = 3;
 const LOAD_MORE_COUNT = 3;
 const FRIDGE_RESULTS_RETURN_KEY = "gotujto:fridge-results-return";
+const RECIPE_RETURNING_KEY = "gotujto:recipe-returning";
 
 type FeedSession = {
     randomSeed: string;
@@ -64,6 +66,17 @@ function readFridgeResultsReturnState(): FridgeResultsReturnState | null {
     }
 }
 
+function didReturnFromRecipe() {
+    try {
+        const didReturn = sessionStorage.getItem(RECIPE_RETURNING_KEY) === "true";
+        sessionStorage.removeItem(RECIPE_RETURNING_KEY);
+
+        return didReturn;
+    } catch {
+        return false;
+    }
+}
+
 export default function FridgeResultsPage() {
     const router = useRouter();
     const searchParams = useSearchParams();
@@ -93,7 +106,14 @@ export default function FridgeResultsPage() {
             : "skip",
     );
 
-    const priorityRecipes = priorityRecipesQuery ?? [];
+    const priorityRecipes = useMemo(
+        () => orderBySessionSeed(
+            priorityRecipesQuery ?? [],
+            feedSession?.randomSeed,
+            item => item.recipe._id,
+        ),
+        [feedSession?.randomSeed, priorityRecipesQuery],
+    );
 
     const uniqueRecipesIds = priorityRecipes.map(
         item => item.recipe._id,
@@ -106,7 +126,9 @@ export default function FridgeResultsPage() {
 
         initializedRef.current = true;
 
-        const returnState = readFridgeResultsReturnState();
+        const returnState = didReturnFromRecipe()
+            ? readFridgeResultsReturnState()
+            : null;
 
         sessionStorage.removeItem(FRIDGE_RESULTS_RETURN_KEY);
 

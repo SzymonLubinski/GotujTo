@@ -359,6 +359,8 @@ export const finalizeApproval = internalMutation({
             servings: recipe.servings,
             authorId: recipe.authorId,
             favorite: recipe.favorite,
+            favoriteCount: 0,
+            commentCount: 0,
             images: [args.imageStorageId],
             videoKey: recipe.videoKey ?? undefined,
             diets: recipe.diets,

@@ -1,11 +1,11 @@
 import type { RefObject } from "react"
-import Image from "next/image"
 import RecipeMediaCarousel from "./RecipeMediaCarousel"
 import FridgeContent from "@/components/web/short/FridgeContent"
 import DealContent from "@/components/web/short/DealContent"
 import {ShortItemData} from "@gotujto/shared/types/result-type";
 import ShortItemFooter from "@/components/web/short/ShortItemFooter";
 import StandardContent from "@/components/web/short/StandardContent";
+import {RecipeShortActions} from "@/components/web/short/RecipeShortActions";
 
 
 type ShortItemProps = {
@@ -29,9 +29,7 @@ export default function ShortItem({ item, index, isActive, isNearby, isMuted, is
 
     return (
         <article ref={isLastLoaded ? loadTriggerRef : undefined} data-short-index={index} className="relative mx-auto h-full w-full max-w-md snap-start snap-always overflow-hidden bg-black">
-            <Image src={images[0]} alt="" aria-hidden fill sizes="(max-width: 768px) 100vw, 448px" priority={isFirstRecipe} className="scale-110 object-cover blur-2xl brightness-50" />
-
-            <div className="absolute inset-0 bg-black/25" />
+            <div aria-hidden className="absolute inset-0 bg-[radial-gradient(circle_at_50%_18%,rgba(132,204,22,0.18),transparent_42%),linear-gradient(160deg,#18181b_0%,#09090b_52%,#020202_100%)]" />
 
             <div className="absolute inset-0 z-10">
                 <RecipeMediaCarousel name={recipe.name} images={images} videoUrl={recipe.videoKey ?? null} isActive={isActive} isNearby={isNearby} isMuted={isMuted} onMutedChange={onMutedChange} priority={isFirstRecipe} />
@@ -39,8 +37,9 @@ export default function ShortItem({ item, index, isActive, isNearby, isMuted, is
 
             {source === "deals" && (
                 <DealContent
-                    matchedGroups={item.matchedGroups}
-                    requiredGroups={item.requiredGroups}
+                    dealIngredientCount={item.dealIngredientCount ?? item.matchedGroups}
+                    dealStores={item.dealStores}
+                    thrift={item.thrift}
                 >
                     <ShortItemFooter
                         item={item}
@@ -72,6 +71,13 @@ export default function ShortItem({ item, index, isActive, isNearby, isMuted, is
                     />
                 </StandardContent>
             )}
+
+            <RecipeShortActions
+                recipeId={recipe._id}
+                recipeName={recipe.name}
+                favoriteCount={recipe.favoriteCount ?? 0}
+                commentCount={recipe.commentCount ?? 0}
+            />
         </article>
     )
 }

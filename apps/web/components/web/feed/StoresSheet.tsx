@@ -73,7 +73,7 @@ export default function StoresSheet({ open, onOpenChange, selectedStores, onSele
                                         <span className="text-base font-medium">{store}</span>
                                     </span>
 
-                                    <Checkbox id={`store-${store}`} checked={checked} onCheckedChange={value => handleStoreChange(store, value === true)} className="size-6 border-white/30 data-[state=checked]:border-lime-400 data-[state=checked]:bg-lime-400 data-[state=checked]:text-black" />
+                                    <Checkbox id={`store-${store}`} checked={checked} onCheckedChange={value => handleStoreChange(store, value === true)} className="size-6 rounded-md border-2 border-zinc-500 bg-transparent text-transparent hover:border-lime-300 focus-visible:border-lime-300 focus-visible:ring-lime-300/50 dark:border-zinc-300 dark:bg-transparent data-[state=checked]:border-lime-400 data-[state=checked]:!bg-transparent data-[state=checked]:text-lime-400 dark:data-[state=checked]:!bg-transparent" />
                                 </label>
                             )
                         })}

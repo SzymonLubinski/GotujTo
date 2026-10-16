@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { Layers , Home, Refrigerator } from "lucide-react"
+import { Layers, Home, Refrigerator, User } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 const navigationItems = [
@@ -19,6 +19,12 @@ const navigationItems = [
         active: (pathname: string) => pathname.startsWith("/fridge"),
     },
     {
+        label: "Profil",
+        href: "/profile",
+        icon: User,
+        active: (pathname: string) => pathname.startsWith("/profile"),
+    },
+    {
         label: "Więcej",
         href: "/more",
         icon: Layers,
@@ -31,7 +37,7 @@ export default function FeedFooter() {
 
     return (
         <footer className="pointer-events-none fixed inset-x-0 bottom-0 z-50 flex justify-center">
-            <nav className="pointer-events-auto grid w-full max-w-md grid-cols-3 border-t border-white/10 bg-black/80 px-2 pb-[env(safe-area-inset-bottom)] text-white backdrop-blur-xl">
+            <nav className="pointer-events-auto grid w-full max-w-md grid-cols-4 border-t border-white/10 bg-black/80 px-2 pb-[env(safe-area-inset-bottom)] text-white backdrop-blur-xl">
                 {navigationItems.map((item) => {
                     const Icon = item.icon
                     const isActive = item.active(pathname)

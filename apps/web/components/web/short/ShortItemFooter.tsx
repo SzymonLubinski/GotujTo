@@ -41,8 +41,19 @@ export default function ShortItemFooter({item, dealProductIds, fridgeProductIds,
                 </div>
 
                 <div className="flex items-center gap-2">
-                    <UserRound className="size-4" />
-                    <span>{item.recipe.authorId}</span>
+                    {item.recipe.authorAvatarUrl ? (
+                        <img
+                            src={item.recipe.authorAvatarUrl}
+                            alt=""
+                            aria-hidden
+                            className="size-5 rounded-full object-cover"
+                        />
+                    ) : <UserRound className="size-4" />}
+                    {item.recipe.authorUserId ? (
+                        <Link href={`/u/${item.recipe.authorUserId}`} className="pointer-events-auto transition-colors hover:text-lime-300">
+                            {item.recipe.authorName ?? item.recipe.authorId}
+                        </Link>
+                    ) : <span>{item.recipe.authorName ?? item.recipe.authorId}</span>}
                 </div>
             </div>
         </>
