@@ -69,7 +69,7 @@ export type BlogShortsFeedItem = {
     title: BlogItem["title"];
     description: BlogItem["description"];
     images: BlogItem["images"];
-    videoKey: BlogItem["videoKey"];
+    videoUrl: BlogItem["videoUrl"];
 };
 
 export type AdShortsFeedItem = {
