@@ -1,11 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import {useEffect, useMemo, useState, useTransition, type ChangeEvent, type FormEvent} from "react";
+import {useEffect, useMemo, useRef, useState, useTransition, type ChangeEvent, type FormEvent} from "react";
 import {useRouter} from "next/navigation";
 import {useMutation, useQuery, useConvexAuth} from "convex/react";
 import {
     ChefHat,
+    ChevronLeft,
+    ChevronRight,
     Clock,
     FileText,
     Heart,
@@ -136,12 +138,44 @@ function ProfileSessionContent({email, name, image, onSignOut, signOutError}: {e
 
 function AuthenticatedProfile({email, name, image, onSignOut, signOutError}: {email: string; name: string; image: string | null; onSignOut: () => void; signOutError: string | null}) {
     const [activeTab, setActiveTab] = useState<ProfileTab>("settings");
+    const tabsRef = useRef<HTMLDivElement>(null);
+    const [canScrollTabs, setCanScrollTabs] = useState({left: false, right: false});
     const {hasCredentialAccount, isLoading: areAccountsLoading} = useAuthenticationMethods();
     const syncPublicProfile = useMutation(api.userDashboard.syncPublicProfile);
 
     useEffect(() => {
         void syncPublicProfile().catch(() => undefined);
     }, [syncPublicProfile]);
+
+    useEffect(() => {
+        const container = tabsRef.current;
+
+        if (!container) return;
+
+        const updateScrollControls = () => {
+            setCanScrollTabs({
+                left: container.scrollLeft > 0,
+                right: container.scrollLeft + container.clientWidth < container.scrollWidth - 1,
+            });
+        };
+
+        updateScrollControls();
+        container.addEventListener("scroll", updateScrollControls, {passive: true});
+        const resizeObserver = new ResizeObserver(updateScrollControls);
+        resizeObserver.observe(container);
+
+        return () => {
+            container.removeEventListener("scroll", updateScrollControls);
+            resizeObserver.disconnect();
+        };
+    }, []);
+
+    function scrollTabs(direction: "left" | "right") {
+        tabsRef.current?.scrollBy({
+            left: direction === "left" ? -220 : 220,
+            behavior: "smooth",
+        });
+    }
 
     return (
         <>
@@ -150,7 +184,11 @@ function AuthenticatedProfile({email, name, image, onSignOut, signOutError}: {em
                 <div className="mx-auto w-full max-w-md px-5">
                     <ProfileHeader name={name} image={image} />
                     <nav aria-label="Profil" className="-mx-5 mt-7 border-y border-white/10">
-                        <div className="flex gap-2 overflow-x-auto px-5 py-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                        <div className="relative">
+                            <button type="button" aria-label="Pokaz poprzednie zakladki" disabled={!canScrollTabs.left} className="absolute left-2 top-1/2 z-10 hidden size-8 -translate-y-1/2 items-center justify-center rounded-full border border-white/15 bg-zinc-950/95 text-white shadow-lg transition-opacity disabled:pointer-events-none disabled:opacity-0 lg:flex" onClick={() => scrollTabs("left")}>
+                                <ChevronLeft className="size-4" />
+                            </button>
+                            <div ref={tabsRef} className="flex gap-2 overflow-x-auto px-5 py-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
                             {tabs.map(tab => {
                                 const Icon = tab.icon;
                                 const isActive = activeTab === tab.id;
@@ -162,6 +200,10 @@ function AuthenticatedProfile({email, name, image, onSignOut, signOutError}: {em
                                     </button>
                                 );
                             })}
+                            </div>
+                            <button type="button" aria-label="Pokaz kolejne zakladki" disabled={!canScrollTabs.right} className="absolute right-2 top-1/2 z-10 hidden size-8 -translate-y-1/2 items-center justify-center rounded-full border border-white/15 bg-zinc-950/95 text-white shadow-lg transition-opacity disabled:pointer-events-none disabled:opacity-0 lg:flex" onClick={() => scrollTabs("right")}>
+                                <ChevronRight className="size-4" />
+                            </button>
                         </div>
                     </nav>
 
