@@ -1,13 +1,13 @@
-import {useRef, useState} from "react";
-import {FlatList, useWindowDimensions, View, type ViewToken} from "react-native";
+import {useEffect, useRef, useState} from "react";
+import {FlatList, useWindowDimensions, type ViewToken} from "react-native";
 import {type Id} from "@gotujto/convex/_generated/dataModel";
 import {type ShortsFeedItem} from "@gotujto/shared/types/result-type";
 import ShortItem from "@/components/Shorts/ShortItem";
 import BlogShortItem from "@/components/Shorts/BlogShortItem";
 import SocialShortItem from "@/components/Shorts/SocialShortItem";
-import AdShortItem from "@/components/Shorts/AdShortItem";
 
 const PREFETCH_DISTANCE = 2;
+const viewabilityConfig = {itemVisiblePercentThreshold: 80};
 
 type RecipeShortsProps = {
     items: ShortsFeedItem[];
@@ -20,14 +20,20 @@ export default function RecipeShorts({items, onApproachingEnd, productIds}: Reci
     const [isMuted, setIsMuted] = useState(true);
     const [activeItemIndex, setActiveItemIndex] = useState(0);
     const verticalListRef = useRef<FlatList<ShortsFeedItem>>(null);
+    const lastTriggeredBoundaryRef = useRef<string | null>(null);
     const itemsRef = useRef(items);
     const onApproachingEndRef = useRef(onApproachingEnd);
-    const lastTriggeredBoundaryRef = useRef<string | null>(null);
 
-    itemsRef.current = items;
-    onApproachingEndRef.current = onApproachingEnd;
+    useEffect(() => {
+        itemsRef.current = items;
+    }, [items]);
 
-    const onViewableItemsChanged = useRef(
+    useEffect(() => {
+        onApproachingEndRef.current = onApproachingEnd;
+    }, [onApproachingEnd]);
+
+    // FlatList requires this callback's identity to remain unchanged after mount.
+    const [onViewableItemsChanged] = useState(() =>
         ({viewableItems}: {viewableItems: ViewToken<ShortsFeedItem>[]}) => {
             const visibleItem = viewableItems[0];
 
@@ -36,9 +42,9 @@ export default function RecipeShorts({items, onApproachingEnd, productIds}: Reci
             }
 
             const activeIndex = visibleItem.index;
-            const currentItems = itemsRef.current;
-
             setActiveItemIndex(activeIndex);
+
+            const currentItems = itemsRef.current;
 
             if (currentItems.length === 0) {
                 return;
@@ -60,11 +66,7 @@ export default function RecipeShorts({items, onApproachingEnd, productIds}: Reci
             lastTriggeredBoundaryRef.current = boundaryKey;
             onApproachingEndRef.current?.();
         },
-    ).current;
-
-    const viewabilityConfig = useRef({
-        itemVisiblePercentThreshold: 80,
-    }).current;
+    );
 
     return (
         <FlatList<ShortsFeedItem>
@@ -92,14 +94,6 @@ export default function RecipeShorts({items, onApproachingEnd, productIds}: Reci
                             isMuted={isMuted}
                             onMutedChange={setIsMuted}
                         />
-                    );
-                }
-
-                if (item.type === "ad") {
-                    return (
-                        <View style={{width, height}}>
-                            <AdShortItem />
-                        </View>
                     );
                 }
 

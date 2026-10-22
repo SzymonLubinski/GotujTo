@@ -1,5 +1,5 @@
 import {Tabs} from "expo-router";
-import {Ellipsis, Home, Search} from "lucide-react-native";
+import {Ellipsis, Home, Search, UserRound} from "lucide-react-native";
 import BottomNav from "@/components/Nav/BottomNav";
 
 export default function TabsLayout() {
@@ -26,6 +26,18 @@ export default function TabsLayout() {
                                  />
                              ),
                          }}
+            />
+            <Tabs.Screen
+                name="profile/index"
+                options={{
+                    title: "Profil",
+                    tabBarIcon: ({color, size}) => (
+                        <UserRound
+                            color={color}
+                            size={size}
+                        />
+                    ),
+                }}
             />
             <Tabs.Screen
                 name="more/index"

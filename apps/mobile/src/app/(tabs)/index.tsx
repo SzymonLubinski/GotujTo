@@ -1,47 +1,94 @@
-import {useCallback, useMemo, useState} from "react";
+import {useCallback, useEffect, useMemo, useState} from "react";
 import {ActivityIndicator, View} from "react-native";
 import {usePaginatedQuery, useQuery} from "convex/react";
 import {api} from "@gotujto/convex/_generated/api";
-import {stores, type StoresT} from "@gotujto/shared/data/stableData";
 import {type ShortsFeedItem} from "@gotujto/shared/types/result-type";
 import RecipeShorts from "@/components/Shorts/RecipeShorts";
 import HomeHeader from "@/components/Nav/HomeHeader";
+import {useSelectedStores} from "@/providers/SelectedStoresContext";
 
-const BLOG_INTERVAL = 5;
-const SOCIAL_POSITION = 8;
-const RECIPES_PAGE_SIZE = 2;
-const TEST_AD_POSITION = 3;
+const RECIPES_PAGE_SIZE = 3;
+const INITIAL_BLOG_SHORTS_COUNT = 6;
+const LOAD_MORE_BLOGS_COUNT = 3;
+
+type FeedSession = {
+    randomSeed: string;
+    createdBefore: number;
+};
+
+function getSeededScore(seed: string, value: string) {
+    const input = `${seed}:${value}`;
+    let hash = 2166136261;
+
+    for (let index = 0; index < input.length; index += 1) {
+        hash ^= input.charCodeAt(index);
+        hash = Math.imul(hash, 16777619);
+    }
+
+    return hash >>> 0;
+}
+
+function orderBySessionSeed<T>(items: T[], seed: string, getId: (item: T) => string) {
+    return [...items].sort((first, second) => {
+        const firstScore = getSeededScore(seed, getId(first));
+        const secondScore = getSeededScore(seed, getId(second));
+
+        return firstScore - secondScore || getId(first).localeCompare(getId(second));
+    });
+}
+
+function getRecipeGapBeforeBlog(seed: string, blogSlot: number) {
+    return 6 + (getSeededScore(seed, `blog-gap:${blogSlot}`) % 3);
+}
+
+function getRequiredBlogCount(recipeCount: number, seed: string) {
+    let recipesBeforeNextBlog = 0;
+    let blogCount = 0;
+
+    while (recipesBeforeNextBlog + getRecipeGapBeforeBlog(seed, blogCount) <= recipeCount) {
+        recipesBeforeNextBlog += getRecipeGapBeforeBlog(seed, blogCount);
+        blogCount += 1;
+    }
+
+    return blogCount;
+}
 
 export default function Index() {
-    const [selectedStores, setSelectedStores] =
-        useState<StoresT[]>([...stores]);
-    const [dealsAsOf] = useState(() => Date.now());
-    const [feedSession] = useState(() => ({
+    const {selectedStores, setSelectedStores} = useSelectedStores();
+    const [feedSession] = useState<FeedSession>(() => ({
         randomSeed: `${Date.now()}-${Math.random()}`,
         createdBefore: Date.now(),
     }));
+    const dealsEnabled = selectedStores.length > 0;
 
     const dealRecipesQuery = useQuery(
         api.recipes.getRecipesByDeals,
-        {
-            stores: selectedStores,
-            limit: 30,
-            asOf: dealsAsOf,
-        },
+        dealsEnabled
+            ? {
+                stores: selectedStores,
+                limit: 30,
+                asOf: feedSession.createdBefore,
+            }
+            : "skip",
     );
 
-    const dealsLoading =
-        dealRecipesQuery === undefined;
+    const priorityRecipesReady = !dealsEnabled || dealRecipesQuery !== undefined;
 
-    const dealRecipes =
-        dealRecipesQuery ?? [];
+    const priorityRecipes = useMemo(
+        () => orderBySessionSeed(
+            dealsEnabled ? dealRecipesQuery ?? [] : [],
+            feedSession.randomSeed,
+            item => item.recipe._id,
+        ),
+        [dealRecipesQuery, dealsEnabled, feedSession.randomSeed],
+    );
 
     const excludedRecipeIds = useMemo(
         () =>
-            dealRecipes.map(
+            priorityRecipes.map(
                 item => item.recipe._id,
             ),
-        [dealRecipes],
+        [priorityRecipes],
     );
 
     const {
@@ -50,7 +97,7 @@ export default function Index() {
         loadMore: loadMoreRecipes,
     } = usePaginatedQuery(
         api.recipes.getRecipesPaginated,
-        !dealsLoading
+        priorityRecipesReady
             ? {
                 excludedRecipeIds,
                 ...feedSession,
@@ -61,160 +108,113 @@ export default function Index() {
         },
     );
 
-    const socialContent =
-        useQuery(
-            api.social.getSocialContent,
-        ) ?? [];
-
     const {
         results: blogContent,
         status: blogStatus,
         loadMore: loadMoreBlog,
     } = usePaginatedQuery(
-        api.blog.getBlogContentPaginated,
-        {},
+        api.blog.getBlogShortsPaginated,
+        feedSession,
         {
-            initialNumItems: 2,
+            initialNumItems: INITIAL_BLOG_SHORTS_COUNT,
         },
     );
 
     const recipes = useMemo(
         () => [
-            ...dealRecipes,
+            ...priorityRecipes,
             ...standardRecipes,
         ],
         [
-            dealRecipes,
+            priorityRecipes,
             standardRecipes,
         ],
     );
 
-    const feedItems = useMemo<ShortsFeedItem[]>(() => {
-            const items: ShortsFeedItem[] = [];
-            let blogIndex = 0;
+    const {feedItems, blockedByBlog} = useMemo(() => {
+        const items: ShortsFeedItem[] = [];
+        let recipeIndex = 0;
+        let blogIndex = 0;
+        let blogSlot = 0;
+        let isBlockedByBlog = false;
 
-            recipes.forEach(
-                (recipe, recipeIndex) => {
-                    items.push({
-                        type: "recipe",
-                        id: `recipe-${recipe.recipe._id}`,
-                        data: recipe,
-                    });
-
-                    const shouldInsertBlog =
-                        (recipeIndex + 1) %
-                        BLOG_INTERVAL ===
-                        0;
-
-                    const blogItem =
-                        blogContent[blogIndex];
-
-                    if (
-                        shouldInsertBlog &&
-                        blogItem !== undefined
-                    ) {
-                        items.push({
-                            type: "blog",
-                            id: `blog-${blogItem._id}`,
-                            blogType: blogItem.type,
-                            title: blogItem.title,
-                            description:
-                            blogItem.description,
-                            images: blogItem.images,
-                            videoKey:
-                            blogItem.videoKey,
-                        });
-
-                        blogIndex += 1;
-                    }
-                },
+        while (recipeIndex < recipes.length) {
+            const recipesInBlock = getRecipeGapBeforeBlog(
+                feedSession.randomSeed,
+                blogSlot,
             );
+            const blockStart = recipeIndex;
+            const blockEnd = Math.min(recipeIndex + recipesInBlock, recipes.length);
 
-            const socialItem =
-                socialContent[0];
+            while (recipeIndex < blockEnd) {
+                const recipe = recipes[recipeIndex];
 
-            if (
-                socialItem !== undefined &&
-                items.length >= SOCIAL_POSITION
-            ) {
-                items.splice(
-                    SOCIAL_POSITION,
-                    0,
-                    {
-                        type: "social",
-                        id: `social-${socialItem._id}`,
-                        title: socialItem.title,
-                        description:
-                        socialItem.description,
-                        instagramUrl:
-                        socialItem.instagramUrl,
-                        facebookUrl:
-                        socialItem.facebookUrl,
-                    },
-                );
+                items.push({
+                    type: "recipe",
+                    id: `recipe-${recipe.recipe._id}`,
+                    data: recipe,
+                });
+                recipeIndex += 1;
             }
 
-            if (items.length >= TEST_AD_POSITION) {
-                items.splice(
-                    TEST_AD_POSITION,
-                    0,
-                    {
-                        type: "ad",
-                        id: "ad-test-1",
-                        slot: 1,
-                    },
-                );
+            if (recipeIndex - blockStart < recipesInBlock) {
+                break;
             }
 
-            return items;
-        }, [
-            recipes,
-            blogContent,
-            socialContent,
-        ]);
+            const blogItem = blogContent[blogIndex];
 
-    const handleApproachingEnd =
-        useCallback(() => {
-            if (
-                standardStatus !== "CanLoadMore"
-            ) {
-                return;
+            if (blogItem) {
+                items.push({
+                    type: "blog",
+                    id: `blog-${blogItem._id}`,
+                    data: blogItem,
+                });
+                blogIndex += 1;
+                blogSlot += 1;
+                continue;
             }
 
-            const nextRecipeCount =
-                recipes.length +
-                RECIPES_PAGE_SIZE;
-
-            const requiredBlogCount =
-                Math.floor(
-                    nextRecipeCount /
-                    BLOG_INTERVAL,
-                );
-
-            loadMoreRecipes(
-                RECIPES_PAGE_SIZE,
-            );
-
-            if (
-                blogStatus === "CanLoadMore" &&
-                blogContent.length <
-                requiredBlogCount
-            ) {
-                loadMoreBlog(
-                    requiredBlogCount -
-                    blogContent.length,
-                );
+            if (blogStatus !== "Exhausted") {
+                isBlockedByBlog = true;
+                break;
             }
-        }, [
-            standardStatus,
-            blogStatus,
-            recipes.length,
-            blogContent.length,
-            loadMoreRecipes,
-            loadMoreBlog,
-        ]);
 
-    if (dealsLoading) {
+            blogSlot += 1;
+        }
+
+        return {
+            feedItems: items,
+            blockedByBlog: isBlockedByBlog,
+        };
+    }, [blogContent, blogStatus, feedSession.randomSeed, recipes]);
+
+    const requiredBlogCount = getRequiredBlogCount(
+        recipes.length + RECIPES_PAGE_SIZE,
+        feedSession.randomSeed,
+    );
+
+    useEffect(() => {
+        if (blogStatus !== "CanLoadMore" || blogContent.length >= requiredBlogCount) {
+            return;
+        }
+
+        loadMoreBlog(
+            Math.max(
+                LOAD_MORE_BLOGS_COUNT,
+                requiredBlogCount - blogContent.length,
+            ),
+        );
+    }, [blogContent.length, blogStatus, loadMoreBlog, requiredBlogCount]);
+
+    const handleApproachingEnd = useCallback(() => {
+        if (blockedByBlog || standardStatus !== "CanLoadMore") {
+            return;
+        }
+
+        loadMoreRecipes(RECIPES_PAGE_SIZE);
+    }, [blockedByBlog, loadMoreRecipes, standardStatus]);
+
+    if (!priorityRecipesReady) {
         return (
             <View className="flex-1 bg-black">
                 <HomeHeader
@@ -229,7 +229,7 @@ export default function Index() {
                 <View className="flex-1 items-center justify-center">
                     <ActivityIndicator
                         size="large"
-                        color="#f97316"
+                        color="#a3e635"
                     />
                 </View>
             </View>
@@ -246,7 +246,7 @@ export default function Index() {
             />
 
             <RecipeShorts
-                key={selectedStores.join("|")}
+                key={`${selectedStores.join("|")}:${feedSession.randomSeed}`}
                 items={feedItems}
                 onApproachingEnd={
                     handleApproachingEnd

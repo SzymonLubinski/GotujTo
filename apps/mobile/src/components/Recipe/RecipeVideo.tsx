@@ -64,6 +64,8 @@ export default function RecipeVideo({uri}: RecipeVideoProps) {
     const toggleMuted = () => {
         const nextMuted = !isMuted;
 
+        // expo-video exposes mutable playback state through the player instance.
+        // eslint-disable-next-line react-hooks/immutability
         player.muted = nextMuted;
         setIsMuted(nextMuted);
     };

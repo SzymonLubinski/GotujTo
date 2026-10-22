@@ -1,8 +1,8 @@
 import {useMemo, useState} from "react";
-import {ActivityIndicator, ScrollView, View} from "react-native";
-import {useLocalSearchParams} from "expo-router";
+import {ActivityIndicator, Pressable, ScrollView, View} from "react-native";
+import {useLocalSearchParams, useRouter} from "expo-router";
 import {useQuery} from "convex/react";
-import {Clock, Tag, Users} from "lucide-react-native";
+import {Clock, Tag, UserRound, Users} from "lucide-react-native";
 import {api} from "@gotujto/convex/_generated/api";
 import {type Id} from "@gotujto/convex/_generated/dataModel";
 import {useSelectedStores} from "@/providers/SelectedStoresContext";
@@ -11,9 +11,12 @@ import RecipeHeader from "@/components/Recipe/RecipeHeader";
 import RecipeIngredients from "@/components/Recipe/RecipeIngredients";
 import RecipeSteps from "@/components/Recipe/RecipeSteps";
 import UnitSystemToggle, {type UnitSystem} from "@/components/Recipe/UnitSystemToggle";
+import CommentsSection from "@/components/Comments/CommentsSection";
+import ContentDetailActions from "@/components/Content/ContentDetailActions";
 
 
 export default function RecipeDetailsScreen() {
+    const router = useRouter();
     const {recipeId: recipeIdParam, productId} = useLocalSearchParams<{
         recipeId?: string | string[];
         productId?: string | string[];
@@ -105,10 +108,13 @@ export default function RecipeDetailsScreen() {
         >
             <RecipeHeader recipe={recipe} />
 
-            <View className="px-2 py-1">
-                <Text className="text-3xl font-bold leading-10 text-white">
-                    {recipe.name}
-                </Text>
+            <View className="px-5 py-6">
+                <View className="flex-row items-start justify-between gap-3">
+                    <Text className="flex-1 text-3xl font-bold leading-10 text-white">
+                        {recipe.name}
+                    </Text>
+                    <ContentDetailActions target="recipe" contentId={recipe._id} title={recipe.name} />
+                </View>
 
                 <View className="mt-4 flex-row flex-wrap gap-4">
                     <View className="flex-row items-center gap-2">
@@ -125,6 +131,18 @@ export default function RecipeDetailsScreen() {
                         </Text>
                     </View>
 
+                    <Pressable
+                        accessibilityRole={recipe.authorUserId ? "link" : undefined}
+                        disabled={!recipe.authorUserId}
+                        onPress={() => recipe.authorUserId && router.push(`/u/${recipe.authorUserId}` as never)}
+                        className="flex-row items-center gap-2 disabled:opacity-100"
+                    >
+                        <UserRound size={19} color="rgba(255, 255, 255, 0.75)" />
+                        <Text className={recipe.authorUserId ? "text-sm text-lime-300" : "text-sm text-white/75"}>
+                            {recipe.authorName ?? recipe.authorId}
+                        </Text>
+                    </Pressable>
+
                     {promotedIngredients > 0 && (
                         <View className="flex-row items-center gap-2">
                             <Tag size={18} color="#fb923c" />
@@ -134,6 +152,12 @@ export default function RecipeDetailsScreen() {
                         </View>
                     )}
                 </View>
+
+                {recipe.description ? (
+                    <Text className="mt-6 text-base leading-7 text-white/75">
+                        {recipe.description}
+                    </Text>
+                ) : null}
 
                 {ownedIngredients > 0 && (
                     <View className="mt-6 rounded-2xl border border-emerald-400/20 bg-emerald-500/10 p-4">
@@ -180,6 +204,8 @@ export default function RecipeDetailsScreen() {
                 <View className="mt-12">
                     <RecipeSteps steps={steps} />
                 </View>
+
+                <CommentsSection target="recipe" contentId={recipe._id} />
             </View>
         </ScrollView>
     );

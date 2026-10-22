@@ -1,10 +1,12 @@
-import {Platform, View} from "react-native";
+import {View} from "react-native";
 import {ShortItemData} from "@gotujto/shared/types/result-type";
 import ShortMediaCarousel from "./ShortMediaCarousel";
 import ShortContent from "@/components/Shorts/ShortContent";
 import {useRouter} from "expo-router";
 import {type Id} from "@gotujto/convex/_generated/dataModel";
 import {navigateAfterBlur} from "@/lib/navigation";
+import ShortActions from "@/components/Shorts/ShortActions";
+import ShortBackground from "@/components/Shorts/ShortBackground";
 
 type ShortItemProps = {
     item: ShortItemData;
@@ -41,6 +43,11 @@ export default function ShortItem({item, width, height, isActive, productIds, is
         <View className="relative overflow-hidden bg-black"
               style={{width, height}}
         >
+            <ShortBackground
+                imageUrl={recipe.images?.[0]}
+                hasVideo={Boolean(recipe.videoKey)}
+            />
+
             <ShortMediaCarousel recipe={recipe}
                                 width={width}
                                 height={height}
@@ -51,6 +58,14 @@ export default function ShortItem({item, width, height, isActive, productIds, is
 
             <ShortContent item={item}
                           onOpenRecipe={handleOpenRecipe}
+            />
+
+            <ShortActions
+                target="recipe"
+                contentId={recipe._id}
+                title={recipe.name}
+                favoriteCount={recipe.favoriteCount ?? 0}
+                commentCount={recipe.commentCount ?? 0}
             />
         </View>
     );

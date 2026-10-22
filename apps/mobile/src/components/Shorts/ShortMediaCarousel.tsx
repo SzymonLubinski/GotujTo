@@ -76,7 +76,15 @@ export default function ShortMediaCarousel({recipe, width, height, isActive, isM
                     activeMediaIndex === index;
 
                 return (
-                    <View style={{width, height}}>
+                    <View
+                        style={{
+                            width,
+                            height,
+                            alignItems: "center",
+                            justifyContent: "center",
+                        }}
+                    >
+                        <View style={{width, height: height * 0.7}}>
                         {item.type === "video" ? (
                             shouldMountVideo ? (
                                 <ShortsVideo uri={item.uri}
@@ -88,8 +96,8 @@ export default function ShortMediaCarousel({recipe, width, height, isActive, isM
                             )
                         ) : (
                             <Image source={{uri: item.uri}}
-                                   style={{width, height}}
-                                   contentFit="cover"
+                                   style={{width, height: height * 0.7}}
+                                   contentFit="contain"
                                    cachePolicy="memory-disk"
                                    onError={({error}) => {
                                        console.error("Image failed:", {
@@ -100,6 +108,7 @@ export default function ShortMediaCarousel({recipe, width, height, isActive, isM
                                    }}
                             />
                         )}
+                        </View>
                     </View>
                 );
             }}

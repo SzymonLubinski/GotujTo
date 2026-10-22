@@ -12,25 +12,28 @@ export interface CheckboxProps extends React.ComponentPropsWithoutRef<typeof Pre
 
 export function Checkbox({ checked = false, onCheckedChange, className, disabled, ...props }: CheckboxProps) {
   const dark = useColorScheme() === "dark";
+    const isChecked = checked ?? false;
+    const handleCheckedChange = onCheckedChange ?? (() => undefined);
+
   return (
     <CheckboxPrimitive.Root
-      checked={checked}
-      onCheckedChange={onCheckedChange}
-      disabled={disabled}
+      checked={isChecked}
+      onCheckedChange={handleCheckedChange}
+      disabled={disabled ?? undefined}
       asChild
     >
       <Pressable
         className="min-h-12 min-w-12 items-center justify-center"
         accessible={true}
         accessibilityRole="checkbox"
-        accessibilityState={{ checked, disabled: !!disabled }}
-        onPress={() => !disabled && onCheckedChange?.(!checked)}
+        accessibilityState={{ checked: isChecked, disabled: !!disabled }}
+        onPress={() => !disabled && handleCheckedChange(!isChecked)}
         {...props}
       >
         <View
           className={cn(
             "h-5 w-5 items-center justify-center rounded border",
-            checked ? "border-primary bg-primary" : "border-input bg-background",
+            isChecked ? "border-primary bg-primary" : "border-input bg-background",
             disabled && "opacity-50",
             className
           )}

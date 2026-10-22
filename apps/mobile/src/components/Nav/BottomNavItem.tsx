@@ -18,7 +18,7 @@ export default function BottomNavItem({label, icon, isActive, onPress, onLongPre
                    onLongPress={onLongPress}
                    className={
                        isActive
-                           ? "min-w-16 items-center gap-1 rounded-xl bg-orange-500/15 px-3 py-2"
+                           ? "min-w-16 items-center gap-1 rounded-xl bg-lime-400/15 px-3 py-2"
                            : "min-w-16 items-center gap-1 px-3 py-2"
                    }
         >
@@ -26,7 +26,7 @@ export default function BottomNavItem({label, icon, isActive, onPress, onLongPre
 
             <Text className={
                 isActive
-                    ? "text-xs font-semibold text-orange-500"
+                    ? "text-xs font-semibold text-lime-300"
                     : "text-xs text-neutral-400"
             }>
                 {label}

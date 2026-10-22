@@ -1,7 +1,8 @@
 import {createClient, type GenericCtx} from "@convex-dev/better-auth";
-import {convex} from "@convex-dev/better-auth/plugins";
+import {convex, crossDomain} from "@convex-dev/better-auth/plugins";
 import {requireRunMutationCtx} from "@convex-dev/better-auth/utils";
 import {betterAuth, type BetterAuthOptions} from "better-auth/minimal";
+import {expo} from "@better-auth/expo";
 
 import {components, internal} from "./_generated/api";
 import type {DataModel} from "./_generated/dataModel";
@@ -96,7 +97,18 @@ export const authComponent = createClient<DataModel>(components.betterAuth);
 export const createAuthOptions = (ctx: GenericCtx<DataModel>) =>
     ({
         appName: "GotujTo",
-        baseURL: process.env.SITE_URL,
+        // Expo Web calls Better Auth directly on the Convex site. The fallback
+        // preserves the existing local web setup until the backend provides its
+        // canonical site URL.
+        baseURL: process.env.CONVEX_SITE_URL ?? process.env.SITE_URL,
+        trustedOrigins: [
+            ...(process.env.SITE_URL ? [process.env.SITE_URL] : []),
+            // Expo Web runs locally on port 8081. These origins are needed
+            // for the browser's CORS preflight before calling the Convex site.
+            "http://localhost:8081",
+            "http://127.0.0.1:8081",
+            "mobile://",
+        ],
         secret: process.env.BETTER_AUTH_SECRET,
         database: authComponent.adapter(ctx),
         rateLimit: {
@@ -174,7 +186,13 @@ export const createAuthOptions = (ctx: GenericCtx<DataModel>) =>
                     },
                 }
                 : undefined,
-        plugins: [convex({authConfig})],
+        plugins: [
+            expo(),
+            convex({authConfig}),
+            ...(process.env.SITE_URL
+                ? [crossDomain({siteUrl: process.env.SITE_URL})]
+                : []),
+        ],
     }) satisfies BetterAuthOptions;
 
 export const createAuth = (ctx: GenericCtx<DataModel>) =>

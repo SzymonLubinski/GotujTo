@@ -30,7 +30,7 @@ export default function BottomNav({state, descriptors, navigation}: BottomNavPro
                         : options.title ?? route.name;
 
                 const color = isActive
-                    ? "#f97316"
+                    ? "#a3e635"
                     : "#a3a3a3";
 
                 const icon = options.tabBarIcon?.({

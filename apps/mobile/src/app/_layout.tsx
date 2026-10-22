@@ -1,10 +1,12 @@
 import {Stack} from "expo-router";
 import "../../global.css";
-import {ConvexReactClient, ConvexProvider} from "convex/react";
+import {ConvexReactClient} from "convex/react";
+import {ConvexBetterAuthProvider} from "@convex-dev/better-auth/react";
 import {GestureHandlerRootView} from "react-native-gesture-handler";
 import {BottomSheetModalProvider} from "@gorhom/bottom-sheet";
 import {SelectedStoresProvider} from "@/providers/SelectedStoresContext";
-import MobileAdsInitializer from "@/components/Ads/MobileAdsInitializer";
+import {ToastProvider} from "@/components/ui/toast";
+import {authClient} from "@/lib/auth-client";
 
 
 
@@ -15,14 +17,17 @@ const convex = new ConvexReactClient(process.env.EXPO_PUBLIC_CONVEX_URL!, {
 export default function RootLayout() {
     return (
         <GestureHandlerRootView style={{flex: 1}}>
-            <MobileAdsInitializer />
-
             <BottomSheetModalProvider>
-                <ConvexProvider client={convex}>
+                <ConvexBetterAuthProvider
+                    client={convex}
+                    authClient={authClient as never}
+                >
                     <SelectedStoresProvider>
-                        <Stack screenOptions={{headerShown: false}}/>
+                        <ToastProvider>
+                            <Stack screenOptions={{headerShown: false}}/>
+                        </ToastProvider>
                     </SelectedStoresProvider>
-                </ConvexProvider>
+                </ConvexBetterAuthProvider>
             </BottomSheetModalProvider>
         </GestureHandlerRootView>
     )

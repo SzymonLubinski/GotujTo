@@ -4,7 +4,7 @@ import {PutObjectCommand} from "@aws-sdk/client-s3";
 import {getSignedUrl} from "@aws-sdk/s3-request-presigner";
 import {r2} from "@/lib/cloud/r2";
 import {requireAdminRequest} from "@/lib/auth/requireAdminRequest";
-import {fetchAuthMutation, isAuthenticated} from "@/lib/auth-server";
+import {isAuthenticated} from "@/lib/auth-server";
 import {api} from "@gotujto/convex/_generated/api";
 import {fetchMutation} from "convex/nextjs";
 import {getAdminSecret} from "@/lib/auth/getAdminSecret";
@@ -16,14 +16,66 @@ const allowedMimeTypes = new Set([
     "video/webm",
 ]);
 
+function mobileWebCorsHeaders(request: NextRequest) {
+    const origin = request.headers.get("origin");
+
+    if (origin !== "http://localhost:8081" && origin !== "http://127.0.0.1:8081") {
+        return {};
+    }
+
+    return {
+        "Access-Control-Allow-Origin": origin,
+        "Access-Control-Allow-Credentials": "true",
+        "Access-Control-Allow-Headers": "Content-Type, X-GotujTo-Auth-Cookie",
+        "Access-Control-Allow-Methods": "POST, OPTIONS",
+        Vary: "Origin",
+    };
+}
+
+async function hasMobileSubmissionSession(request: NextRequest) {
+    if (await isAuthenticated()) {
+        return true;
+    }
+
+    const cookie = request.headers.get("x-gotujto-auth-cookie");
+    const convexSiteUrl = process.env.NEXT_PUBLIC_CONVEX_SITE_URL;
+
+    if (!cookie || !convexSiteUrl) {
+        return false;
+    }
+
+    const response = await fetch(`${convexSiteUrl}/api/auth/get-session`, {
+        headers: {Cookie: cookie},
+        cache: "no-store",
+    });
+
+    if (!response.ok) {
+        return false;
+    }
+
+    const session: unknown = await response.json();
+    return typeof session === "object" && session !== null && "user" in session && Boolean(session.user);
+}
+
+function json(request: NextRequest, body: unknown, init?: ResponseInit) {
+    return NextResponse.json(body, {
+        ...init,
+        headers: {...mobileWebCorsHeaders(request), ...init?.headers},
+    });
+}
+
+export function OPTIONS(request: NextRequest) {
+    return new NextResponse(null, {status: 204, headers: mobileWebCorsHeaders(request)});
+}
+
 export async function POST(request: NextRequest) {
     const purpose = new URL(request.url).searchParams.get("purpose");
     const isUserSubmission = purpose === "blog-submission" || purpose === "recipe-submission";
 
     try {
         if (isUserSubmission) {
-            if (!(await isAuthenticated())) {
-                return NextResponse.json(
+            if (!(await hasMobileSubmissionSession(request))) {
+                return json(request,
                     {error: "Zaloguj sie, aby przeslac film."},
                     {status: 401},
                 );
@@ -40,7 +92,7 @@ export async function POST(request: NextRequest) {
             !("contentType" in body) ||
             !("size" in body)
         ) {
-            return NextResponse.json(
+            return json(request,
                 {error: "Nieprawidłowe dane pliku."},
                 {status: 400},
             );
@@ -55,7 +107,7 @@ export async function POST(request: NextRequest) {
             typeof contentType !== "string" ||
             !allowedMimeTypes.has(contentType)
         ) {
-            return NextResponse.json(
+            return json(request,
                 {error: "Dozwolone formaty: MP4 i WebM."},
                 {status: 415},
             );
@@ -67,7 +119,7 @@ export async function POST(request: NextRequest) {
             size <= 0 ||
             size > MAX_VIDEO_SIZE
         ) {
-            return NextResponse.json(
+            return json(request,
                 {error: "Film może mieć maksymalnie 200 MB."},
                 {status: 413},
             );
@@ -91,7 +143,7 @@ export async function POST(request: NextRequest) {
             !("contentType" in body) ||
             !("size" in body)
         ) {
-            return NextResponse.json(
+            return json(request,
                 {error: "Nieprawidłowe dane pliku."},
                 {status: 400},
             );
@@ -117,22 +169,12 @@ export async function POST(request: NextRequest) {
             {expiresIn: 2 * 60},
         );
 
-        if (isUserSubmission) {
-            await fetchAuthMutation(
-                api.userDashboard.registerPendingSubmissionVideo,
-                {
-                    videoKey,
-                    purpose: purpose === "recipe-submission" ? "recipe" : "blog",
-                },
-            );
-        }
-
-        return NextResponse.json({
+        return json(request, {
             videoKey,
             uploadUrl,
         });
     } catch {
-        return NextResponse.json(
+        return json(request,
             {error: "Brak uprawnień."},
             {status: 401},
         );

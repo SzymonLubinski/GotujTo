@@ -1,21 +1,17 @@
-import {Linking, Platform, Pressable, ScrollView, View} from "react-native";
+import {Alert, Linking, Platform, Pressable, ScrollView, View} from "react-native";
 import Constants from "expo-constants";
 import FontAwesome6 from "@expo/vector-icons/FontAwesome6";
 import {ChevronRight, ExternalLink, FileText, Info, Mail, Settings, ShieldCheck} from "lucide-react-native";
 import {Text} from "@/components/ui/text";
 import {useBottomTabBarHeight} from "expo-router/js-tabs";
 
+const siteUrl = process.env.EXPO_PUBLIC_SITE_URL?.replace(/\/$/, "");
 const LINKS = {
-    privacyPolicy:
-        "https://twoja-strona.pl/polityka-prywatnosci",
-    terms:
-        "https://twoja-strona.pl/regulamin",
-    email:
-        "lubinski.szymon.99@gmail.com",
-    instagram:
-        "https://www.instagram.com/twoje-konto",
-    facebook:
-        "https://www.facebook.com/twoje-konto",
+    privacyPolicy: siteUrl ? `${siteUrl}/polityka-prywatnosci` : undefined,
+    terms: siteUrl ? `${siteUrl}/regulamin` : undefined,
+    email: "mailto:lubinski.szymon.99@gmail.com",
+    instagram: process.env.EXPO_PUBLIC_INSTAGRAM_URL,
+    facebook: process.env.EXPO_PUBLIC_FACEBOOK_URL,
 };
 
 export default function MoreScreen() {
@@ -29,7 +25,11 @@ export default function MoreScreen() {
             ? Constants.expoConfig?.android?.versionCode
             : Constants.expoConfig?.ios?.buildNumber;
 
-    const openUrl = async (url: string) => {
+    const openUrl = async (url: string | undefined, unavailableMessage: string) => {
+        if (!url) {
+            Alert.alert("Brak adresu", unavailableMessage);
+            return;
+        }
         try {
             await Linking.openURL(url);
         } catch (error) {
@@ -96,6 +96,7 @@ export default function MoreScreen() {
                         onPress={() =>
                             openUrl(
                                 LINKS.privacyPolicy,
+                                "Adres strony nie zostal jeszcze skonfigurowany.",
                             )
                         }
                     />
@@ -112,7 +113,10 @@ export default function MoreScreen() {
                             />
                         }
                         onPress={() =>
-                            openUrl(LINKS.terms)
+                            openUrl(
+                                LINKS.terms,
+                                "Adres strony nie zostal jeszcze skonfigurowany.",
+                            )
                         }
                     />
                 </View>
@@ -130,7 +134,10 @@ export default function MoreScreen() {
                             />
                         }
                         onPress={() =>
-                            openUrl(LINKS.email)
+                            openUrl(
+                                LINKS.email,
+                                "Nie udalo sie przygotowac wiadomosci e-mail.",
+                            )
                         }
                     />
                 </View>
@@ -142,7 +149,10 @@ export default function MoreScreen() {
                         accessibilityRole="link"
                         accessibilityLabel="Otwórz Instagram GotujTo"
                         onPress={() =>
-                            openUrl(LINKS.instagram)
+                            openUrl(
+                                LINKS.instagram,
+                                "Nie udalo sie otworzyc Instagrama.",
+                            )
                         }
                         className="h-14 flex-row items-center justify-center gap-3 rounded-2xl bg-orange-500 active:bg-orange-400 will-change-pressable"
                     >
@@ -161,7 +171,10 @@ export default function MoreScreen() {
                         accessibilityRole="link"
                         accessibilityLabel="Otwórz Facebook GotujTo"
                         onPress={() =>
-                            openUrl(LINKS.facebook)
+                            openUrl(
+                                LINKS.facebook,
+                                "Nie udalo sie otworzyc Facebooka.",
+                            )
                         }
                         className="h-14 flex-row items-center justify-center gap-3 rounded-2xl bg-blue-600 active:bg-blue-500 will-change-pressable"
                     >

@@ -2652,6 +2652,7 @@ export const deleteReportedComment = mutation({
 export const requestEmailChange = mutation({
     args: {
         newEmail: v.string(),
+        callbackURL: v.optional(v.string()),
     },
     handler: async (ctx, args) => {
         await requireUser(ctx);
@@ -2669,7 +2670,7 @@ export const requestEmailChange = mutation({
         await auth.api.changeEmail({
             body: {
                 newEmail,
-                callbackURL: "/profile",
+                callbackURL: args.callbackURL ?? "/profile",
             },
             headers,
         });

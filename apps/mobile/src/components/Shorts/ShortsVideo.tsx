@@ -30,6 +30,8 @@ export default function ShortsVideo({uri, isMuted, onMutedChange}: ShortsVideoPr
         status === "loading";
 
     useEffect(() => {
+        // expo-video exposes mutable playback state through the player instance.
+        // eslint-disable-next-line react-hooks/immutability
         player.muted = isMuted;
     }, [isMuted, player]);
 
@@ -56,6 +58,8 @@ export default function ShortsVideo({uri, isMuted, onMutedChange}: ShortsVideoPr
     const toggleMuted = () => {
         const nextMuted = !isMuted;
 
+        // expo-video exposes mutable playback state through the player instance.
+        // eslint-disable-next-line react-hooks/immutability
         player.muted = nextMuted;
         onMutedChange(nextMuted);
     };
@@ -91,7 +95,8 @@ export default function ShortsVideo({uri, isMuted, onMutedChange}: ShortsVideoPr
                         inset: 0,
                         zIndex: 20,
                         alignItems: "center",
-                        justifyContent: "center",
+                        justifyContent: "flex-start",
+                        paddingTop: "35%",
                     }}
                 >
                     <Pressable
@@ -138,7 +143,7 @@ export default function ShortsVideo({uri, isMuted, onMutedChange}: ShortsVideoPr
                                 : "Wycisz film"
                         }
                         onPress={toggleMuted}
-                        className="absolute right-4 top-30 h-11 w-11 items-center justify-center rounded-full bg-black/50"
+                        className="absolute right-4 top-4 h-11 w-11 items-center justify-center rounded-full bg-black/50"
                     >
                         {isMuted ? (
                             <VolumeX

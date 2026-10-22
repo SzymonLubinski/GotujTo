@@ -7,12 +7,11 @@ import { cn } from "@/lib/utils";
 
 export interface DropdownMenuProps {
   children: React.ReactNode;
-  open?: boolean;
   onOpenChange?: (open: boolean) => void;
 }
 
-export function DropdownMenu({ children, open, onOpenChange }: DropdownMenuProps) {
-  return <DropdownMenuPrimitive.Root open={open} onOpenChange={onOpenChange}>{children}</DropdownMenuPrimitive.Root>;
+export function DropdownMenu({ children, onOpenChange }: DropdownMenuProps) {
+  return <DropdownMenuPrimitive.Root onOpenChange={onOpenChange}>{children}</DropdownMenuPrimitive.Root>;
 }
 
 export function DropdownMenuTrigger({ className, children, ...props }: React.ComponentPropsWithoutRef<typeof Pressable> & { className?: string; children: React.ReactNode }) {
@@ -28,7 +27,7 @@ export function DropdownMenuTrigger({ className, children, ...props }: React.Com
 export interface DropdownMenuContentProps extends React.ComponentPropsWithoutRef<typeof View> {
   className?: string;
   children?: React.ReactNode;
-  side?: "top" | "bottom" | "left" | "right";
+  side?: "top" | "bottom";
   sideOffset?: number;
   align?: "start" | "center" | "end";
 }

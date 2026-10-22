@@ -81,9 +81,13 @@ export function usePressAnimation(scale = 0.96) {
     transform: [{ scale: pressed.value }],
   }));
   const onPressIn = useCallback(() => {
+    // Reanimated shared values are intentionally mutable outside React state.
+    // eslint-disable-next-line react-hooks/immutability
     pressed.value = withSpring(scale, springs.snappy);
   }, [scale, pressed]);
   const onPressOut = useCallback(() => {
+    // Reanimated shared values are intentionally mutable outside React state.
+    // eslint-disable-next-line react-hooks/immutability
     pressed.value = withSpring(1, springs.snappy);
   }, [pressed]);
   return { animatedStyle, onPressIn, onPressOut };

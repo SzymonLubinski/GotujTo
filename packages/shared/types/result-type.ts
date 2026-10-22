@@ -21,9 +21,9 @@ type SocialItem =
         typeof api.social.getSocialContent
     >[number];
 
-type BlogItem =
+type BlogShortItem =
     FunctionReturnType<
-        typeof api.blog.getBlogContentPaginated
+        typeof api.blog.getBlogShortsPaginated
     >["page"][number];
 
 export type ShortItemData =
@@ -65,21 +65,10 @@ export type SocialShortsFeedItem = {
 export type BlogShortsFeedItem = {
     type: "blog";
     id: string;
-    blogType: BlogItem["type"];
-    title: BlogItem["title"];
-    description: BlogItem["description"];
-    images: BlogItem["images"];
-    videoUrl: BlogItem["videoUrl"];
-};
-
-export type AdShortsFeedItem = {
-    type: "ad";
-    id: string;
-    slot: number;
+    data: BlogShortItem;
 };
 
 export type ShortsFeedItem =
     | RecipeShortsFeedItem
     | SocialShortsFeedItem
-    | BlogShortsFeedItem
-    | AdShortsFeedItem;
+    | BlogShortsFeedItem;

@@ -1,18 +1,28 @@
 import {useMemo, useState} from "react";
 import {ActivityIndicator, Keyboard, KeyboardAvoidingView, Platform, Pressable, ScrollView, TextInput, View} from "react-native";
 import {useRouter} from "expo-router";
-import {useQuery} from "convex/react";
-import {ArrowLeft, ChefHat, Plus, Search, X} from "lucide-react-native";
+import {useMutation, useQuery, useConvexAuth} from "convex/react";
+import {ArrowLeft, ChefHat, Plus, Search, Trash2, X} from "lucide-react-native";
 import {api} from "@gotujto/convex/_generated/api";
 import {type Doc} from "@gotujto/convex/_generated/dataModel";
 import {Text} from "@/components/ui/text";
 import {navigateAfterBlur} from "@/lib/navigation";
+import {useToast} from "@/components/ui/toast";
 
 export default function FridgeScreen() {
     const router = useRouter();
     const [phrase, setPhrase] = useState("");
     const [selectedProducts, setSelectedProducts] = useState<Doc<"products">[]>([]);
     const [suggestionsOpen, setSuggestionsOpen] = useState(false);
+    const {isAuthenticated, isLoading: isAuthLoading} = useConvexAuth();
+    const {toast} = useToast();
+    const savedFridgeProducts = useQuery(
+        api.userDashboard.getFridgeProducts,
+        isAuthenticated ? {} : "skip",
+    );
+    const addFridgeProduct = useMutation(api.userDashboard.addFridgeProduct);
+    const removeFridgeProduct = useMutation(api.userDashboard.removeFridgeProduct);
+    const clearFridgeProducts = useMutation(api.userDashboard.clearFridgeProducts);
 
     const normalizedPhrase = phrase.trim();
     const suggestions = useQuery(
@@ -20,13 +30,20 @@ export default function FridgeScreen() {
         normalizedPhrase.length >= 2 ? {phrase: normalizedPhrase} : "skip",
     );
 
+    const products = useMemo(() => {
+        return isAuthenticated
+            ? savedFridgeProducts ?? []
+            : selectedProducts;
+    }, [isAuthenticated, savedFridgeProducts, selectedProducts]);
+    const isFridgeLoading = isAuthenticated && savedFridgeProducts === undefined;
+
     const filteredSuggestions = useMemo(() => {
         return suggestions?.filter(product => {
-            return !selectedProducts.some(selectedProduct => {
+            return !products.some(selectedProduct => {
                 return selectedProduct._id === product._id;
             });
         });
-    }, [selectedProducts, suggestions]);
+    }, [products, suggestions]);
 
     const handlePhraseChange = (value: string) => {
         setPhrase(value);
@@ -39,16 +56,42 @@ export default function FridgeScreen() {
     };
 
     const handleSelectProduct = (product: Doc<"products">) => {
-        setSelectedProducts(currentProducts => [...currentProducts, product]);
         setPhrase("");
         setSuggestionsOpen(false);
         Keyboard.dismiss();
+
+        if (isAuthenticated) {
+            void addFridgeProduct({productId: product._id}).catch(() => {
+                toast({title: "Nie udało się dodać produktu do lodówki.", variant: "destructive"});
+            });
+            return;
+        }
+
+        setSelectedProducts(currentProducts => [...currentProducts, product]);
     };
 
     const handleRemoveProduct = (productId: Doc<"products">["_id"]) => {
+        if (isAuthenticated) {
+            void removeFridgeProduct({productId}).catch(() => {
+                toast({title: "Nie udało się usunąć produktu z lodówki.", variant: "destructive"});
+            });
+            return;
+        }
+
         setSelectedProducts(currentProducts => {
             return currentProducts.filter(product => product._id !== productId);
         });
+    };
+
+    const handleClearProducts = () => {
+        if (isAuthenticated) {
+            void clearFridgeProducts().catch(() => {
+                toast({title: "Nie udało się opróżnić lodówki.", variant: "destructive"});
+            });
+            return;
+        }
+
+        setSelectedProducts([]);
     };
 
     const handleShowRecipes = () => {
@@ -56,7 +99,7 @@ export default function FridgeScreen() {
             router.push({
                 pathname: "/fridge/results",
                 params: {
-                    productId: selectedProducts.map(product => product._id),
+                    productId: products.map(product => product._id),
                 },
             });
         });
@@ -171,16 +214,34 @@ export default function FridgeScreen() {
                                     Twoje produkty
                                 </Text>
 
-                                <Text className="text-sm text-white/50">
-                                    {selectedProducts.length}
-                                </Text>
+                                <View className="flex-row items-center gap-3">
+                                    <Text className="text-sm text-white/50">
+                                        {isFridgeLoading ? "…" : products.length}
+                                    </Text>
+
+                                    {products.length > 0 && (
+                                        <Pressable
+                                            accessibilityRole="button"
+                                            accessibilityLabel="Usuń wszystkie produkty"
+                                            onPress={handleClearProducts}
+                                            className="flex-row items-center gap-1 rounded-full px-2 py-1 active:bg-red-400/10"
+                                        >
+                                            <Trash2 size={14} color="#fca5a5" />
+                                            <Text className="text-xs font-medium text-red-300">Usuń wszystkie</Text>
+                                        </Pressable>
+                                    )}
+                                </View>
                             </View>
 
-                            {selectedProducts.length > 0 ? (
+                            {isFridgeLoading || isAuthLoading ? (
+                                <View className="mt-4 min-h-24 items-center justify-center rounded-2xl border border-white/10 bg-white/5">
+                                    <ActivityIndicator size="small" color="#a3e635" />
+                                </View>
+                            ) : products.length > 0 ? (
                                 <View className="mt-4 flex-row flex-wrap gap-2"
                                       key="selected-products"
                                 >
-                                    {selectedProducts.map(product => (
+                                    {products.map(product => (
                                         <View key={product._id}
                                               className="flex-row items-center gap-2 rounded-full bg-white/10 py-2 pl-4 pr-2"
                                         >
@@ -210,21 +271,21 @@ export default function FridgeScreen() {
                         </View>
 
                         <Pressable accessibilityRole="button"
-                                   disabled={selectedProducts.length === 0}
-                                   className={selectedProducts.length === 0
+                                   disabled={products.length === 0 || isFridgeLoading}
+                                   className={products.length === 0 || isFridgeLoading
                                        ? "mt-10 h-14 w-full flex-row items-center justify-center gap-2 rounded-xl bg-white/10 will-change-pressable"
                                        : "mt-10 h-14 w-full flex-row items-center justify-center gap-2 rounded-xl bg-lime-400 active:bg-lime-300 will-change-pressable"
                                    }
                                    onPress={handleShowRecipes}
                         >
                             <ChefHat size={20}
-                                     color={selectedProducts.length === 0
+                                     color={products.length === 0 || isFridgeLoading
                                          ? "rgba(255, 255, 255, 0.3)"
                                          : "#000000"
                                      }
                             />
 
-                            <Text className={selectedProducts.length === 0
+                            <Text className={products.length === 0 || isFridgeLoading
                                 ? "text-base font-semibold text-white/30"
                                 : "text-base font-semibold text-black"
                             }>

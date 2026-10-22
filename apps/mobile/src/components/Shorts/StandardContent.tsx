@@ -2,6 +2,7 @@ import {type ReactNode} from "react";
 import {Pressable, Text, View} from "react-native";
 import Entypo from "@expo/vector-icons/Entypo";
 import Ionicons from "@expo/vector-icons/Ionicons";
+import {useRouter} from "expo-router";
 import {type ShortItemData} from "@gotujto/shared/types/result-type";
 
 type StandardContentProps = {
@@ -12,6 +13,7 @@ type StandardContentProps = {
 };
 
 export default function StandardContent({recipe, topContent, sourceInfo, onOpenRecipe}: StandardContentProps) {
+    const router = useRouter();
     return (
         <View className="absolute inset-0"
               pointerEvents="box-none"
@@ -24,21 +26,21 @@ export default function StandardContent({recipe, topContent, sourceInfo, onOpenR
                 </View>
             )}
 
-            <View className="absolute inset-x-0 bottom-10 gap-3"
+            <View className="absolute inset-x-0 bottom-0 gap-3"
             >
-                <View className="bg-neutral-950/50 p-4">
+                <View className="bg-black/70 px-5 pb-24 pt-16">
                     <Pressable accessibilityRole="button"
-                               className="mt-3 items-center"
+                               className="max-w-[78%]"
                                onPress={onOpenRecipe}
                     >
-                        <Text className="text-2xl font-bold leading-4 text-white"
+                        <Text className="text-2xl font-bold leading-8 text-white"
                               numberOfLines={2}
                         >
                             {recipe.name}
                         </Text>
                     </Pressable>
                     {sourceInfo}
-                    <View className="mt-3 flex-row items-center gap-4">
+                    <View className="mt-3 max-w-[78%] flex-row items-center gap-4">
                         <View className="flex-row items-center gap-1.5">
                             <Ionicons name="time-outline" size={20} color="white"/>
                             <Text className="text-sm font-medium text-white">
@@ -46,14 +48,19 @@ export default function StandardContent({recipe, topContent, sourceInfo, onOpenR
                             </Text>
                         </View>
 
-                        <View className="flex-1 flex-row items-center gap-1.5">
+                        <Pressable
+                            accessibilityRole={recipe.authorUserId ? "link" : undefined}
+                            disabled={!recipe.authorUserId}
+                            onPress={() => recipe.authorUserId && router.push(`/u/${recipe.authorUserId}` as never)}
+                            className="flex-1 flex-row items-center gap-1.5 disabled:opacity-100"
+                        >
                             <Entypo name="user" size={18} color="white"/>
-                            <Text className="flex-1 text-sm font-medium text-white"
+                            <Text className={recipe.authorUserId ? "flex-1 text-sm font-medium text-lime-300" : "flex-1 text-sm font-medium text-white"}
                                   numberOfLines={1}
                             >
-                                {recipe.authorId}
+                                {recipe.authorName ?? recipe.authorId}
                             </Text>
-                        </View>
+                        </Pressable>
                     </View>
                 </View>
             </View>

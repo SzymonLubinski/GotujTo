@@ -1,4 +1,4 @@
-import {useCallback, useMemo, useState} from "react";
+import {useMemo, useState} from "react";
 import {FlatList, Text, View} from "react-native";
 import {Image} from "expo-image";
 import {ChefHat} from "lucide-react-native";

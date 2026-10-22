@@ -2,6 +2,7 @@
   "name": "@gotujto/convex",
   "private": true,
   "dependencies": {
+    "@better-auth/expo": "~1.6.33",
     "@convex-dev/better-auth": "^0.12.5",
     "@gotujto/shared": "workspace:*",
     "better-auth": "~1.6.33",
