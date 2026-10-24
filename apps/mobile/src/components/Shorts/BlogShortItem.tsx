@@ -8,6 +8,7 @@ import ShortsVideo from "@/components/Shorts/ShortsVideo";
 import {useRouter} from "expo-router";
 import ShortActions from "@/components/Shorts/ShortActions";
 import ShortBackground from "@/components/Shorts/ShortBackground";
+import ShortTitleBackground from "@/components/Shorts/ShortTitleBackground";
 
 type BlogShortItemProps = {
     item: BlogShortsFeedItem;
@@ -55,10 +56,7 @@ export default function BlogShortItem({item, width, height, isActive, isMuted, o
 
     return (
         <View style={{width, height}} className="overflow-hidden bg-neutral-950">
-            <ShortBackground
-                imageUrl={blog.images[0]}
-                hasVideo={Boolean(blog.videoUrl)}
-            />
+            <ShortBackground />
 
             {media.length > 0 ? (
                 <FlatList<BlogMedia>
@@ -110,7 +108,8 @@ export default function BlogShortItem({item, width, height, isActive, isMuted, o
                 <View className="h-full w-full bg-neutral-950" />
             )}
 
-            <View pointerEvents="box-none" className="absolute inset-x-0 bottom-0 bg-black/70 px-5 pb-24 pt-16">
+            <ShortTitleBackground />
+            <View pointerEvents="box-none" className="absolute inset-x-0 bottom-0 px-5 pb-24 pt-16">
                 <View className="mb-3 flex-row items-center gap-2">
                     <LabelIcon size={17} color="#fb923c" />
                     <Text className="text-sm font-semibold uppercase tracking-wider text-orange-400">

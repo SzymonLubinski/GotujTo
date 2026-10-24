@@ -3,13 +3,11 @@ import {ActivityIndicator, FlatList, Pressable, useWindowDimensions, View} from 
 import {useLocalSearchParams, useRouter} from "expo-router";
 import {useQuery} from "convex/react";
 import {Image} from "expo-image";
-import {ArrowLeft, BookOpenText, ChefHat, Clock, UserRound, Users} from "lucide-react-native";
+import {ArrowLeft, Image as ImageIcon, Play, UserRound} from "lucide-react-native";
 import {useSafeAreaInsets} from "react-native-safe-area-context";
 import type {FunctionReturnType} from "convex/server";
 
 import {api} from "@gotujto/convex/_generated/api";
-import ContentMediaCarousel from "@/components/Content/ContentMediaCarousel";
-import ShortActions from "@/components/Shorts/ShortActions";
 import {Text} from "@/components/ui/text";
 
 type PublicProfileResult = NonNullable<FunctionReturnType<typeof api.userDashboard.getPublicProfile>>;
@@ -17,16 +15,10 @@ type PublicRecipe = PublicProfileResult["recipes"][number];
 type PublicBlog = PublicProfileResult["blogPosts"][number];
 type PublicTab = "recipes" | "blog";
 
-const blogTypeLabels = {
-    tip: "Porada",
-    article: "Artykul",
-    joke: "Ciekawostka",
-};
-
 export default function PublicProfileScreen() {
     const router = useRouter();
     const insets = useSafeAreaInsets();
-    const {width, height} = useWindowDimensions();
+    const {width} = useWindowDimensions();
     const {userId: userIdParam} = useLocalSearchParams<{userId?: string | string[]}>();
     const userId = Array.isArray(userIdParam) ? userIdParam[0] : userIdParam;
     const result = useQuery(
@@ -34,7 +26,7 @@ export default function PublicProfileScreen() {
         userId ? {userId} : "skip",
     );
     const [activeTab, setActiveTab] = useState<PublicTab>("recipes");
-    const shortHeight = Math.max(height - insets.top - 166, 360);
+    const thumbnailWidth = Math.max((width - 24) / 2, 0);
     const items = useMemo(
         () => activeTab === "recipes" ? result?.recipes ?? [] : result?.blogPosts ?? [],
         [activeTab, result?.blogPosts, result?.recipes],
@@ -89,22 +81,36 @@ export default function PublicProfileScreen() {
             ) : activeTab === "recipes" ? (
                 <FlatList<PublicRecipe>
                     data={result.recipes}
+                    keyboardShouldPersistTaps="always"
                     keyExtractor={item => item._id}
-                    pagingEnabled
+                    numColumns={2}
+                    contentContainerStyle={{padding: 8, gap: 8}}
+                    columnWrapperStyle={{gap: 8}}
                     showsVerticalScrollIndicator={false}
-                    decelerationRate="fast"
-                    renderItem={({item}) => <PublicRecipeShort recipe={item} width={width} height={shortHeight} />}
-                    getItemLayout={(_, index) => ({length: shortHeight, offset: shortHeight * index, index})}
+                    renderItem={({item}) => <PublicThumbnail
+                        title={item.name}
+                        image={item.images[0]}
+                        hasVideo={!!item.videoUrl}
+                        width={thumbnailWidth}
+                        onPress={() => router.push(`/recipe/${item._id}` as never)}
+                    />}
                 />
             ) : (
                 <FlatList<PublicBlog>
                     data={result.blogPosts}
+                    keyboardShouldPersistTaps="always"
                     keyExtractor={item => item._id}
-                    pagingEnabled
+                    numColumns={2}
+                    contentContainerStyle={{padding: 8, gap: 8}}
+                    columnWrapperStyle={{gap: 8}}
                     showsVerticalScrollIndicator={false}
-                    decelerationRate="fast"
-                    renderItem={({item}) => <PublicBlogShort blog={item} width={width} height={shortHeight} />}
-                    getItemLayout={(_, index) => ({length: shortHeight, offset: shortHeight * index, index})}
+                    renderItem={({item}) => <PublicThumbnail
+                        title={item.title}
+                        image={item.images[0]}
+                        hasVideo={!!item.videoUrl}
+                        width={thumbnailWidth}
+                        onPress={() => router.push(`/blog/${item._id}` as never)}
+                    />}
                 />
             )}
         </View>
@@ -124,43 +130,19 @@ function ProfileTabButton({active, label, onPress}: {active: boolean; label: str
     );
 }
 
-function PublicRecipeShort({recipe, width, height}: {recipe: PublicRecipe; width: number; height: number}) {
-    const router = useRouter();
-
+function PublicThumbnail({title, image, hasVideo, width, onPress}: {title: string; image?: string; hasVideo: boolean; width: number; onPress: () => void}) {
     return (
-        <View style={{width, height}} className="overflow-hidden bg-neutral-950">
-            <ContentMediaCarousel contentId={recipe._id} images={recipe.images} videoUrl={recipe.videoUrl} width={width} height={height} />
-            <View pointerEvents="box-none" className="absolute inset-x-0 bottom-0 bg-black/70 px-5 pb-7 pt-14">
-                <View className="mb-3 flex-row items-center gap-2"><ChefHat size={17} color="#a3e635" /><Text className="text-sm font-semibold uppercase tracking-wider text-lime-300">Przepis</Text></View>
-                <Pressable accessibilityRole="link" onPress={() => router.push(`/recipe/${recipe._id}` as never)}>
-                    <Text className="max-w-[76%] text-2xl font-bold leading-8 text-white" numberOfLines={2}>{recipe.name}</Text>
-                </Pressable>
-                {recipe.description ? <Text className="mt-3 max-w-[76%] text-sm leading-6 text-white/75" numberOfLines={3}>{recipe.description}</Text> : null}
-                <View className="mt-4 flex-row items-center gap-4">
-                    <View className="flex-row items-center gap-1.5"><Clock size={16} color="#ffffff" /><Text className="text-sm font-medium text-white">{recipe.cookingMinutes} min</Text></View>
-                    <View className="flex-row items-center gap-1.5"><Users size={16} color="#ffffff" /><Text className="text-sm font-medium text-white">{recipe.servings} porcji</Text></View>
-                </View>
+        <Pressable accessibilityRole="link" accessibilityLabel={title} onPress={onPress} style={{width, aspectRatio: 1}} className="overflow-hidden rounded-lg bg-neutral-900">
+            {image ? (
+                <Image source={{uri: image}} style={{width: "100%", height: "100%"}} contentFit="cover" />
+            ) : (
+                <View className="flex-1 items-center justify-center"><ImageIcon size={30} color="rgba(255,255,255,0.4)" /></View>
+            )}
+            {hasVideo && <View className="absolute right-2 top-2 rounded-full bg-black/60 p-1.5"><Play size={16} color="#fff" fill="#fff" /></View>}
+            <View className="absolute inset-x-0 bottom-0 bg-black/65 px-2 py-2">
+                <Text className="text-sm font-semibold text-white" numberOfLines={2}>{title}</Text>
             </View>
-            <ShortActions target="recipe" contentId={recipe._id} title={recipe.name} favoriteCount={recipe.favoriteCount} commentCount={recipe.commentCount} />
-        </View>
-    );
-}
-
-function PublicBlogShort({blog, width, height}: {blog: PublicBlog; width: number; height: number}) {
-    const router = useRouter();
-
-    return (
-        <View style={{width, height}} className="overflow-hidden bg-neutral-950">
-            <ContentMediaCarousel contentId={blog._id} images={blog.images} videoUrl={blog.videoUrl} width={width} height={height} />
-            <View pointerEvents="box-none" className="absolute inset-x-0 bottom-0 bg-black/70 px-5 pb-7 pt-14">
-                <View className="mb-3 flex-row items-center gap-2"><BookOpenText size={17} color="#fb923c" /><Text className="text-sm font-semibold uppercase tracking-wider text-orange-400">Blog · {blogTypeLabels[blog.type]}</Text></View>
-                <Pressable accessibilityRole="link" onPress={() => router.push(`/blog/${blog._id}` as never)}>
-                    <Text className="max-w-[76%] text-2xl font-bold leading-8 text-white" numberOfLines={2}>{blog.title}</Text>
-                </Pressable>
-                <Text className="mt-3 max-w-[76%] text-sm leading-6 text-white/75" numberOfLines={4}>{blog.description}</Text>
-            </View>
-            <ShortActions target="blog" contentId={blog._id} title={blog.title} favoriteCount={blog.favoriteCount} commentCount={blog.commentCount} />
-        </View>
+        </Pressable>
     );
 }
 

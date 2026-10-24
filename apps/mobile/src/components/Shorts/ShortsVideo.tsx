@@ -1,7 +1,7 @@
 import {useEvent, useEventListener} from "expo";
 import {useVideoPlayer, VideoView} from "expo-video";
-import {Pause, Play, Volume2, VolumeX} from "lucide-react-native";
-import {useEffect} from "react";
+import {Play, Volume2, VolumeX} from "lucide-react-native";
+import {useEffect, useRef} from "react";
 import {Pressable, View} from "react-native";
 import VideoLoadingPlaceholder from "./VideoLoadingPlaceholder";
 
@@ -12,6 +12,7 @@ type ShortsVideoProps = {
 };
 
 export default function ShortsVideo({uri, isMuted, onMutedChange}: ShortsVideoProps) {
+    const pausedByUser = useRef(false);
     const player = useVideoPlayer(uri, player => {
         player.loop = true;
         player.muted = isMuted;
@@ -41,17 +42,19 @@ export default function ShortsVideo({uri, isMuted, onMutedChange}: ShortsVideoPr
             return;
         }
 
-        if (status === "readyToPlay") {
+        if (status === "readyToPlay" && !pausedByUser.current) {
             player.play();
         }
     });
 
     const togglePlayback = () => {
         if (isPlaying) {
+            pausedByUser.current = true;
             player.pause();
             return;
         }
 
+        pausedByUser.current = false;
         player.play();
     };
 
@@ -88,42 +91,28 @@ export default function ShortsVideo({uri, isMuted, onMutedChange}: ShortsVideoPr
             )}
 
             {!isLoading && (
-                <View
-                    pointerEvents="box-none"
+                <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={isPlaying ? "Wstrzymaj film" : "Wznów film"}
+                    onPress={togglePlayback}
                     style={{
                         position: "absolute",
                         inset: 0,
                         zIndex: 20,
                         alignItems: "center",
-                        justifyContent: "flex-start",
-                        paddingTop: "35%",
+                        justifyContent: "center",
                     }}
                 >
-                    <Pressable
-                        accessibilityRole="button"
-                        accessibilityLabel={
-                            isPlaying
-                                ? "Zatrzymaj film"
-                                : "Odtwórz film"
-                        }
-                        onPress={togglePlayback}
-                        className="h-14 w-14 items-center justify-center rounded-full bg-black/50"
-                    >
-                        {isPlaying ? (
-                            <Pause
-                                size={28}
-                                color="#ffffff"
-                                fill="#ffffff"
-                            />
-                        ) : (
+                    {!isPlaying && (
+                        <View pointerEvents="none" className="h-14 w-14 items-center justify-center rounded-full bg-black/50">
                             <Play
                                 size={28}
                                 color="#ffffff"
                                 fill="#ffffff"
                             />
-                        )}
-                    </Pressable>
-                </View>
+                        </View>
+                    )}
+                </Pressable>
             )}
 
             {!isLoading && (

@@ -47,7 +47,7 @@ export default function BlogDetailsScreen() {
     const mediaHeight = Math.min(width * 1.25, 520);
 
     return (
-        <ScrollView className="flex-1 bg-black" contentContainerStyle={{paddingBottom: 48}}>
+        <ScrollView className="flex-1 bg-black" contentContainerStyle={{paddingBottom: 48}} keyboardShouldPersistTaps="always">
             <View className="relative bg-neutral-950" style={{height: hasMedia ? mediaHeight : insets.top + 64}}>
                 {hasMedia && (
                     <ContentMediaCarousel
@@ -76,7 +76,7 @@ export default function BlogDetailsScreen() {
                 </View>
 
                 <View className="mt-4 flex-row items-start justify-between gap-3">
-                    <Text className="flex-1 text-3xl font-bold leading-10 text-white">{blog.title}</Text>
+                    <Text className="flex-1 text-2xl font-bold leading-8 text-white">{blog.title}</Text>
                     <ContentDetailActions target="blog" contentId={blog._id} title={blog.title} />
                 </View>
 

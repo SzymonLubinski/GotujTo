@@ -26,9 +26,8 @@ export default function StandardContent({recipe, topContent, sourceInfo, onOpenR
                 </View>
             )}
 
-            <View className="absolute inset-x-0 bottom-0 gap-3"
-            >
-                <View className="bg-black/70 px-5 pb-24 pt-16">
+            <View pointerEvents="box-none" className="absolute inset-x-0 bottom-0 gap-3">
+                <View pointerEvents="box-none" className="px-5 pb-24 pt-16">
                     <Pressable accessibilityRole="button"
                                className="max-w-[78%]"
                                onPress={onOpenRecipe}
@@ -40,7 +39,7 @@ export default function StandardContent({recipe, topContent, sourceInfo, onOpenR
                         </Text>
                     </Pressable>
                     {sourceInfo}
-                    <View className="mt-3 max-w-[78%] flex-row items-center gap-4">
+                    <View pointerEvents="box-none" className="mt-3 max-w-[78%] flex-row items-center gap-4">
                         <View className="flex-row items-center gap-1.5">
                             <Ionicons name="time-outline" size={20} color="white"/>
                             <Text className="text-sm font-medium text-white">

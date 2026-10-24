@@ -105,12 +105,13 @@ export default function RecipeDetailsScreen() {
         <ScrollView className="flex-1 bg-black"
                     contentContainerStyle={{paddingBottom: 48}}
                     showsVerticalScrollIndicator={false}
+                    keyboardShouldPersistTaps="always"
         >
             <RecipeHeader recipe={recipe} />
 
             <View className="px-5 py-6">
                 <View className="flex-row items-start justify-between gap-3">
-                    <Text className="flex-1 text-3xl font-bold leading-10 text-white">
+                    <Text className="flex-1 text-2xl font-bold leading-8 text-white">
                         {recipe.name}
                     </Text>
                     <ContentDetailActions target="recipe" contentId={recipe._id} title={recipe.name} />

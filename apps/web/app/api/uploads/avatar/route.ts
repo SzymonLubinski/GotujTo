@@ -21,15 +21,50 @@ function isAvatarContentType(value: string): value is AvatarContentType {
     return value in extensionsByContentType;
 }
 
-export async function POST(request: NextRequest) {
-    if (!(await isAuthenticated())) {
-        return NextResponse.json(
-            {error: "Zaloguj sie, aby przeslac avatar."},
-            {status: 401},
-        );
-    }
+function mobileWebCorsHeaders(request: NextRequest) {
+    const origin = request.headers.get("origin");
+    if (origin !== "http://localhost:8081" && origin !== "http://127.0.0.1:8081") return {};
+    return {
+        "Access-Control-Allow-Origin": origin,
+        "Access-Control-Allow-Credentials": "true",
+        "Access-Control-Allow-Headers": "Content-Type, X-GotujTo-Auth-Cookie",
+        "Access-Control-Allow-Methods": "POST, OPTIONS",
+        Vary: "Origin",
+    };
+}
 
+function json(request: NextRequest, body: unknown, init?: ResponseInit) {
+    return NextResponse.json(body, {...init, headers: {...mobileWebCorsHeaders(request), ...init?.headers}});
+}
+
+async function hasMobileSession(request: NextRequest) {
+    if (await isAuthenticated()) return true;
+    const cookie = request.headers.get("x-gotujto-auth-cookie");
+    const convexSiteUrl = process.env.NEXT_PUBLIC_CONVEX_SITE_URL;
+    if (!cookie || !convexSiteUrl) return false;
+    const response = await fetch(`${convexSiteUrl}/api/auth/get-session`, {
+        headers: {Cookie: cookie},
+        cache: "no-store",
+    });
+    if (!response.ok) return false;
+    const session: unknown = await response.json();
+    return typeof session === "object" && session !== null && "user" in session && Boolean(session.user);
+}
+
+export function OPTIONS(request: NextRequest) {
+    return new NextResponse(null, {status: 204, headers: mobileWebCorsHeaders(request)});
+}
+
+export async function POST(request: NextRequest) {
+    const isMobile = new URL(request.url).searchParams.get("purpose") === "mobile";
     try {
+        if (!(isMobile ? await hasMobileSession(request) : await isAuthenticated())) {
+            return json(request,
+                {error: "Zaloguj sie, aby przeslac avatar."},
+                {status: 401},
+            );
+        }
+
         const body: unknown = await request.json();
 
         if (
@@ -38,7 +73,7 @@ export async function POST(request: NextRequest) {
             || !("contentType" in body)
             || !("size" in body)
         ) {
-            return NextResponse.json(
+            return json(request,
                 {error: "Nieprawidlowe dane pliku."},
                 {status: 400},
             );
@@ -53,7 +88,7 @@ export async function POST(request: NextRequest) {
             typeof contentType !== "string"
             || !isAvatarContentType(contentType)
         ) {
-            return NextResponse.json(
+            return json(request,
                 {error: "Dozwolone formaty: JPG, PNG i WebP."},
                 {status: 415},
             );
@@ -65,7 +100,7 @@ export async function POST(request: NextRequest) {
             || size <= 0
             || size > MAX_AVATAR_SIZE
         ) {
-            return NextResponse.json(
+            return json(request,
                 {error: "Avatar moze miec maksymalnie 5 MB."},
                 {status: 413},
             );
@@ -85,17 +120,17 @@ export async function POST(request: NextRequest) {
             throw new Error("Brak publicznego adresu plikow.");
         }
 
-        await fetchAuthMutation(api.userDashboard.registerPendingAvatarUpload, {
-            avatarKey,
-        });
+        if (!isMobile) {
+            await fetchAuthMutation(api.userDashboard.registerPendingAvatarUpload, {avatarKey});
+        }
 
-        return NextResponse.json({
+        return json(request, {
             uploadUrl,
             avatarUrl: `${publicUrl.replace(/\/$/, "")}/${avatarKey}`,
             avatarKey,
         });
     } catch {
-        return NextResponse.json(
+        return json(request,
             {error: "Nie udalo sie przygotowac uploadu avatara."},
             {status: 500},
         );

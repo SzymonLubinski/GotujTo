@@ -11,6 +11,7 @@ import {authClient} from "@/lib/auth-client";
 import {useToast} from "@/components/ui/toast";
 import {RecipeSubmissionForm} from "@/components/Submission/RecipeSubmissionForm";
 import {BlogSubmissionForm} from "@/components/Submission/BlogSubmissionForm";
+import {ProfileAvatarForm} from "@/components/Profile/ProfileAvatarForm";
 
 type ProfileTab = "settings" | "favorites" | "fridge" | "recipes" | "blog";
 type Submission = Doc<"recipeSubmissions"> | Doc<"blogSubmissions">;
@@ -69,10 +70,10 @@ export function ProfileDashboard() {
     else if (activeTab === "fridge") content = <FridgeTab products={fridgeProducts} />;
     else if (activeTab === "recipes") content = <SubmissionTabWithForm kind="recipe" submissions={recipeSubmissions} />;
     else if (activeTab === "blog") content = <SubmissionTabWithForm kind="blog" submissions={blogSubmissions} />;
-    else content = <SettingsTab email={session.user.email} onSignOut={handleSignOut} />;
+    else content = <SettingsTab email={session.user.email} image={session.user.image} onSignOut={handleSignOut} />;
 
     return (
-        <ScrollView className="flex-1 bg-black" contentContainerStyle={{paddingBottom: 120}}>
+        <ScrollView className="flex-1 bg-black" contentContainerStyle={{paddingBottom: 120}} keyboardShouldPersistTaps="always">
             <View className="px-5 pt-10">
                 <ProfileHeader name={session.user.name ?? ""} email={session.user.email} image={session.user.image} />
                 <ScrollView className="-mx-5 mt-7 border-y border-white/10" horizontal showsHorizontalScrollIndicator={false}>
@@ -106,7 +107,7 @@ function ProfileHeader({name, email, image}: {name: string; email: string; image
     return <View className="flex-row items-start gap-4"><View className="size-16 overflow-hidden rounded-full border border-lime-300/30 bg-lime-400/10">{image ? <Image accessibilityLabel="Twój avatar" className="size-full" source={{uri: image}} /> : <View className="flex-1 items-center justify-center"><UserRound size={30} color="#a3e635" /></View>}</View><View className="flex-1"><Text className="text-sm font-medium text-lime-300">Twój profil</Text><Text className="mt-1 text-2xl font-bold text-white">Witaj{name ? `, ${name}` : ""}</Text><Text className="mt-1 text-sm text-white/55">{email}</Text></View></View>;
 }
 
-function SettingsTab({email, onSignOut}: {email: string; onSignOut: () => void}) {
+function SettingsTab({email, image, onSignOut}: {email: string; image?: string | null; onSignOut: () => void}) {
     const router = useRouter();
     const {toast} = useToast();
     const requestEmailChange = useMutation(api.userDashboard.requestEmailChange);
@@ -209,6 +210,7 @@ function SettingsTab({email, onSignOut}: {email: string; onSignOut: () => void})
 
     return <View className="gap-4">
         <ProfileCard icon={<UserRound size={21} color="#a3e635" />} title="Twoje konto" description={email} />
+        <ProfileAvatarForm image={image} />
         {hasCredentialAccount ? <>
             <SettingsCard icon={<Mail size={20} color="#a3e635" />} title="Zmien adres e-mail" description="Potwierdzisz zmiane linkiem wyslanym na nowy adres.">
                 <SettingsInput label="Nowy adres e-mail" value={newEmail} onChangeText={setNewEmail} autoCapitalize="none" autoComplete="email" keyboardType="email-address" />
@@ -278,7 +280,14 @@ function SubmissionsTab({kind, submissions}: {kind: "recipe" | "blog"; submissio
         const open = () => publishedId && router.push((recipe ? `/recipe/${publishedId}` : `/blog/${publishedId}`) as never);
         const statusClass = submission.status === "approved" ? "text-lime-300" : submission.status === "rejected" ? "text-red-300" : "text-amber-200";
         const status = submission.status === "approved" ? "Zatwierdzono" : submission.status === "rejected" ? "Odrzucono" : "Oczekuje";
-        return <Pressable key={submission._id} disabled={!publishedId} onPress={open} className="rounded-2xl border border-white/10 bg-white/5 p-4 active:bg-white/10 disabled:opacity-75"><Text className="text-base font-semibold text-white">{title}</Text><Text className={`mt-2 text-sm ${statusClass}`}>{status}{publishedId ? " · Otwórz" : ""}</Text></Pressable>;
+        return <Pressable key={submission._id} disabled={!publishedId} onPress={open} className="rounded-2xl border border-white/10 bg-white/5 p-4 active:bg-white/10 disabled:opacity-75">
+            <Text className="text-base font-semibold text-white">{title}</Text>
+            <Text className={`mt-2 text-sm ${statusClass}`}>{status}{publishedId ? " · Otwórz" : ""}</Text>
+            {submission.adminNote && <View className="mt-3 rounded-lg bg-white/5 px-3 py-2">
+                <Text className="text-sm font-semibold text-white/80">Wiadomość od administratora</Text>
+                <Text className="mt-1 text-sm leading-5 text-white/80">{submission.adminNote}</Text>
+            </View>}
+        </Pressable>;
     })}</View>;
 }
 

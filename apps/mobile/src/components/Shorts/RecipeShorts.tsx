@@ -110,6 +110,7 @@ export default function RecipeShorts({items, onApproachingEnd, productIds}: Reci
                 );
             }}
             pagingEnabled
+            keyboardShouldPersistTaps="always"
             showsVerticalScrollIndicator={false}
             decelerationRate="fast"
             snapToInterval={height}

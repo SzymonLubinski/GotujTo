@@ -7,6 +7,7 @@ import {type Id} from "@gotujto/convex/_generated/dataModel";
 import {navigateAfterBlur} from "@/lib/navigation";
 import ShortActions from "@/components/Shorts/ShortActions";
 import ShortBackground from "@/components/Shorts/ShortBackground";
+import ShortTitleBackground from "@/components/Shorts/ShortTitleBackground";
 
 type ShortItemProps = {
     item: ShortItemData;
@@ -43,10 +44,7 @@ export default function ShortItem({item, width, height, isActive, productIds, is
         <View className="relative overflow-hidden bg-black"
               style={{width, height}}
         >
-            <ShortBackground
-                imageUrl={recipe.images?.[0]}
-                hasVideo={Boolean(recipe.videoKey)}
-            />
+            <ShortBackground />
 
             <ShortMediaCarousel recipe={recipe}
                                 width={width}
@@ -55,6 +53,8 @@ export default function ShortItem({item, width, height, isActive, productIds, is
                                 isMuted={isMuted}
                                 onMutedChange={onMutedChange}
             />
+
+            <ShortTitleBackground />
 
             <ShortContent item={item}
                           onOpenRecipe={handleOpenRecipe}

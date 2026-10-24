@@ -1,38 +1,25 @@
 import {View} from "react-native";
-import {Image} from "expo-image";
-
-type ShortBackgroundProps = {
-    imageUrl?: string;
-    hasVideo: boolean;
-};
+import Svg, {Defs, LinearGradient, RadialGradient, Rect, Stop} from "react-native-svg";
 
 /** Keeps contained media readable without cropping it into the background. */
-export default function ShortBackground({imageUrl, hasVideo}: ShortBackgroundProps) {
-    if (hasVideo) {
-        return (
-            <View pointerEvents="none" className="absolute inset-0 overflow-hidden bg-[#020504]">
-                <View className="absolute -left-28 -top-28 size-80 rounded-full bg-lime-400/20" />
-                <View className="absolute -right-32 top-1/3 size-96 rounded-full bg-emerald-700/25" />
-                <View className="absolute -bottom-44 left-1/4 size-96 rounded-full bg-lime-700/15" />
-                <View className="absolute inset-0 bg-black/55" />
-            </View>
-        );
-    }
-
-    if (imageUrl) {
-        return (
-            <View pointerEvents="none" className="absolute inset-0 overflow-hidden bg-black">
-                <Image
-                    source={{uri: imageUrl}}
-                    className="absolute -inset-10 size-[120%]"
-                    contentFit="cover"
-                    blurRadius={42}
-                    cachePolicy="memory-disk"
-                />
-                <View className="absolute inset-0 bg-black/50" />
-            </View>
-        );
-    }
-
-    return <View pointerEvents="none" className="absolute inset-0 bg-neutral-950" />;
+export default function ShortBackground() {
+    return (
+        <View pointerEvents="none" className="absolute inset-0 overflow-hidden bg-[#020202]">
+            <Svg width="100%" height="100%" style={{position: "absolute"}}>
+                <Defs>
+                    <LinearGradient id="shortVideoBase" x1="0" y1="0" x2="1" y2="1">
+                        <Stop offset="0" stopColor="#18181b" />
+                        <Stop offset="0.52" stopColor="#09090b" />
+                        <Stop offset="1" stopColor="#020202" />
+                    </LinearGradient>
+                    <RadialGradient id="shortVideoGlow" cx="50%" cy="18%" rx="50%" ry="42%">
+                        <Stop offset="0" stopColor="#84cc16" stopOpacity={0.18} />
+                        <Stop offset="1" stopColor="#84cc16" stopOpacity={0} />
+                    </RadialGradient>
+                </Defs>
+                <Rect width="100%" height="100%" fill="url(#shortVideoBase)" />
+                <Rect width="100%" height="100%" fill="url(#shortVideoGlow)" />
+            </Svg>
+        </View>
+    );
 }

@@ -95,7 +95,6 @@ export default function AuthForm({mode}: AuthFormProps) {
                 email: normalizedEmail,
                 password,
                 rememberMe: true,
-                    callbackURL: "mobile://profile",
             });
 
             if (result.error) {

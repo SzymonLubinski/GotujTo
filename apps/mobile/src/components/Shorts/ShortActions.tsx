@@ -96,7 +96,7 @@ export default function ShortActions(props: ShortActionsProps) {
                             <X size={22} color="#ffffff" strokeWidth={2.5} />
                         </Pressable>
                     </View>
-                    <ScrollView className="flex-1" contentContainerClassName="px-5 pb-12">
+                    <ScrollView className="flex-1" contentContainerClassName="px-5 pb-12" keyboardShouldPersistTaps="always">
                         {props.target === "recipe" ? <CommentsSection target="recipe" contentId={props.contentId} /> : <CommentsSection target="blog" contentId={props.contentId} />}
                     </ScrollView>
                 </View>

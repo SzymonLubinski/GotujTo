@@ -150,17 +150,17 @@ export default function CommentsSection({target, contentId}: CommentsSectionProp
             </View>
 
             {comments === undefined ? (
-                <View className="h-20 items-center justify-center">
+                <View key="comments-loading" className="h-20 items-center justify-center">
                     <ActivityIndicator color="#a3e635" />
                 </View>
             ) : comments.length === 0 ? (
-                <View className="rounded-2xl border border-dashed border-white/15 px-4 py-7">
+                <View key="comments-empty" className="rounded-2xl border border-dashed border-white/15 px-4 py-7">
                     <Text className="text-center text-sm leading-6 text-white/60">
                         Nie ma jeszcze komentarzy. Napisz pierwszy.
                     </Text>
                 </View>
             ) : (
-                <View className="gap-5">
+                <View key="comments-list" className="gap-5">
                     {comments.map(comment => (
                         <View key={comment._id} className="flex-row gap-3">
                             <Avatar
