@@ -19,7 +19,7 @@ type RecipePageProps = {
 
 type RecipeResult = NonNullable<RecipeResultsType>;
 
-const siteUrl = "https://gotuj-to.vercel.app"
+const siteUrl = "https://gotujto.com"
 
 function getRecipeStructuredData(
     result: RecipeResult,

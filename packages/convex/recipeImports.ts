@@ -504,6 +504,13 @@ export const approve = action({
                 await ctx.storage.delete(newlyStoredImageId);
             }
 
+            await ctx.scheduler.runAfter(0, internal.indexNow.submitUrls, {
+                    urls: [
+                        `https://gotujto.com/recipe/${result.recipeId}`,
+                    ],
+                },
+            );
+
             return {recipeId: result.recipeId};
         } catch (error) {
             if (newlyStoredImageId) {

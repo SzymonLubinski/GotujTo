@@ -12,6 +12,7 @@ import {filter} from "convex-helpers/server/filter";
 import {type Doc, type Id} from "./_generated/dataModel";
 import {customaryUnits, dietTypes, mealTypes, metricUnits, occasions, stores} from "../shared/data/stableData";
 import {requireAdmin} from "./lib/requireAdmin";
+import {internal} from "./_generated/api";
 
 const DEFAULT_DEALS_LIMIT = 30;
 const MAX_DEALS_LIMIT = 30;
@@ -227,6 +228,14 @@ export const createRecipe = mutation({
                 })),
             );
 
+            await ctx.scheduler.runAfter(
+                0,
+                internal.indexNow.submitUrls,
+                {
+                    urls: [`https://gotujto.com/recipe/${recipeId}`],
+                },
+            );
+
             return recipeId;
         } catch (error) {
             console.error(error);
@@ -309,6 +318,14 @@ export const updateRecipe = mutation({
                 description: step.description,
             })),
         ]);
+
+        await ctx.scheduler.runAfter(
+            0,
+            internal.indexNow.submitUrls,
+            {
+                urls: [`https://gotujto.com/recipe/${args.recipeId}`],
+            },
+        );
 
         return {
             recipeId: args.recipeId,
@@ -1424,6 +1441,14 @@ export const deleteRecipe = mutation({
 
         await ctx.db.delete(args.recipeId);
 
+        await ctx.scheduler.runAfter(
+            0,
+            internal.indexNow.submitUrls,
+            {
+                urls: [`https://gotujto.com/recipe/${args.recipeId}`],
+            },
+        );
+        
         return {
             recipeId: args.recipeId,
             videoKey: recipe.videoKey ?? null,

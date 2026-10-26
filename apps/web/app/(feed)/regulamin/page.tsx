@@ -20,7 +20,7 @@ export default function TermsPage() {
 
                     <div className="space-y-10 pt-8 text-neutral-300">
                         <Section title="1. Postanowienia ogólne">
-                            <p>Regulamin określa zasady korzystania z serwisu internetowego GotujTo (&bdquo;Serwis&rdquo;), dostępnego pod adresem gotuj-to.vercel.app.</p>
+                            <p>Regulamin określa zasady korzystania z serwisu internetowego GotujTo (&bdquo;Serwis&rdquo;), dostępnego pod adresem gotujto.com</p>
                             <p>Usługodawcą jest Szymon Lubiński. Kontakt z Usługodawcą jest możliwy pod adresem: {" "}<a className="text-lime-300 underline underline-offset-4 hover:text-lime-200" href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a>.</p>
                             <p>Korzystanie z Serwisu jest nieodpłatne. Przeglądanie publicznych treści nie wymaga utworzenia konta. Część funkcji, w tym dodawanie komentarzy, ulubionych, własnej lodówki oraz zgłaszanie przepisu lub wpisu blogowego, wymaga zalogowania.</p>
                         </Section>

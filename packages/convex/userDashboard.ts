@@ -4,6 +4,8 @@ import {type Doc, type Id} from "./_generated/dataModel";
 import {authComponent, createAuth} from "./auth";
 import {customaryUnits, dietTypes, mealTypes, metricUnits, occasions} from "../shared/data/stableData";
 import {requireAdmin} from "./lib/requireAdmin";
+import {internal} from "./_generated/api";
+
 
 type AuthenticatedCtx = QueryCtx | MutationCtx;
 
@@ -503,6 +505,14 @@ async function deletePublicRecipe(ctx: MutationCtx, recipeId: Id<"recipes">) {
 
     await enqueueVideoCleanup(ctx, recipe.videoKey);
     await ctx.db.delete(recipe._id);
+
+    await ctx.scheduler.runAfter(
+        0,
+        internal.indexNow.submitUrls,
+        {
+            urls: [`https://gotujto.com/recipe/${recipeId}`],
+        },
+    );
 }
 
 const submissionIngredientV = v.object({
@@ -2162,6 +2172,12 @@ export const approveRecipeSubmission = mutation({
             reviewedAt: now,
             updatedAt: now,
         });
+
+        await ctx.scheduler.runAfter(0, internal.indexNow.submitUrls,
+            {
+                urls: [`https://gotujto.com/recipe/${recipeId}`],
+            },
+        );
 
         return recipeId;
     },

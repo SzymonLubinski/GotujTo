@@ -15,6 +15,7 @@ import type * as convex__generated_api from "../convex/_generated/api.js";
 import type * as convex__generated_server from "../convex/_generated/server.js";
 import type * as deals from "../deals.js";
 import type * as http from "../http.js";
+import type * as indexNow from "../indexNow.js";
 import type * as lib_requireAdmin from "../lib/requireAdmin.js";
 import type * as products from "../products.js";
 import type * as recipeImports from "../recipeImports.js";
@@ -36,6 +37,7 @@ declare const fullApi: ApiFromModules<{
   "convex/_generated/server": typeof convex__generated_server;
   deals: typeof deals;
   http: typeof http;
+  indexNow: typeof indexNow;
   "lib/requireAdmin": typeof lib_requireAdmin;
   products: typeof products;
   recipeImports: typeof recipeImports;
