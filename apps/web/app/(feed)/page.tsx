@@ -4,8 +4,6 @@ import HomeFeed from "@/components/web/feed/HomeFeed";
 
 const siteUrl = "https://gotujto.com";
 
-export const revalidate = 600;
-
 export default async function FeedPage() {
     const initialRecipes = await fetchQuery(api.recipes.getHomeFeedRecipes, {
         limit: 6,
