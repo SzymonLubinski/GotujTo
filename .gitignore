@@ -60,3 +60,9 @@ next-env.d.ts
 
 # Robocze dane importu
 /packages/shared/data/themealdb/
+
+/tools/gsc-mcp/server.mjs
+/tools/gsc-mcp/README.md
+
+# Tokeny i dane uwierzytelniające
+**/tokens.json

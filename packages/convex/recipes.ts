@@ -16,6 +16,8 @@ import {internal} from "./_generated/api";
 
 const DEFAULT_DEALS_LIMIT = 30;
 const MAX_DEALS_LIMIT = 30;
+const DEFAULT_HOME_FEED_LIMIT = 6;
+const MAX_HOME_FEED_LIMIT = 6;
 const DEFAULT_FRIDGE_LIMIT = 30;
 const MAX_FRIDGE_LIMIT = 30;
 const MAX_IMAGE_SIZE = 10 * 1024 * 1024;
@@ -1105,6 +1107,35 @@ export const getRecipesPaginated = query({
             isDone,
             continueCursor,
         };
+    },
+});
+
+export const getHomeFeedRecipes = query({
+    args: {
+        limit: v.optional(v.number()),
+    },
+    handler: async (ctx, args) => {
+        const limit = normalizeLimit(
+            args.limit,
+            DEFAULT_HOME_FEED_LIMIT,
+            MAX_HOME_FEED_LIMIT,
+        );
+        const recipes = await ctx.db
+            .query("recipes")
+            .order("desc")
+            .take(limit);
+
+        return await Promise.all(
+            recipes.map(async recipe => ({
+                recipe: {
+                    ...recipe,
+                    ...await getRecipeMedia(ctx, recipe),
+                },
+                source: "standard" as const,
+                dealProductIds: [] as Id<"products">[],
+                fridgeProductIds: [] as Id<"products">[],
+            })),
+        );
     },
 });
 
