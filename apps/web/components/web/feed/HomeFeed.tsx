@@ -293,7 +293,16 @@ export default function HomeFeed({initialRecipes}: HomeFeedProps) {
         ),
         [dealsEnabled, feedSession?.randomSeed, priorityRecipesQuery],
     );
-    const excludedRecipeIds = priorityRecipes.map(item => item.recipe._id);
+    const initialRecipeIds = new Set(
+        initialRecipes.map(item => item.recipe._id),
+    );
+    const additionalPriorityRecipes = priorityRecipes.filter(
+        item => !initialRecipeIds.has(item.recipe._id),
+    );
+    const excludedRecipeIds = [
+        ...initialRecipeIds,
+        ...additionalPriorityRecipes.map(item => item.recipe._id),
+    ];
 
     const {results, status, loadMore} = usePaginatedQuery(
         api.recipes.getRecipesPaginated,
@@ -324,7 +333,7 @@ export default function HomeFeed({initialRecipes}: HomeFeedProps) {
         status !== "LoadingFirstPage" &&
         blogStatus !== "LoadingFirstPage";
     const recipeItems = liveFeedReady
-        ? [...priorityRecipes, ...results]
+        ? [...initialRecipes, ...additionalPriorityRecipes, ...results]
         : initialRecipes;
     const {items: feedItems, blockedByBlog} = useMemo(
         () => createFeedItems(
