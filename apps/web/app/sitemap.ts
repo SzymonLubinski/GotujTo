@@ -17,6 +17,11 @@ export default async function sitemap():
             changeFrequency: "daily",
             priority: 1,
         },
+        {
+            url: `${siteUrl}/recipes`,
+            changeFrequency: "daily",
+            priority: 0.9,
+        },
         ...recipes.map(recipe => ({
             url:
                 `${siteUrl}/recipe/${recipe.recipeId}`,

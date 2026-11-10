@@ -19,7 +19,7 @@ export default function RecipeSteps({steps}: RecipeStepsProps) {
             </div>
             <ol className="space-y-5">
                 {sortedSteps.map((step, index) => (
-                    <li key={step._id} className="relative grid grid-cols-[2.5rem_minmax(0,1fr)] gap-4">
+                    <li id={`krok-${step.stepNum}`} key={step._id} className="relative grid grid-cols-[2.5rem_minmax(0,1fr)] gap-4">
                         <div className="flex flex-col items-center">
                                     <span
                                         className="relative z-10 flex size-10 shrink-0 items-center justify-center rounded-full bg-primary font-bold text-primary-foreground">

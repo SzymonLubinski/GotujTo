@@ -56,6 +56,14 @@ export default function MorePage() {
 
                 <section className="overflow-hidden rounded-2xl border border-white/10 bg-white/5">
                     <MenuLink
+                        href="/recipes"
+                        title="Wszystkie przepisy"
+                        description="Przegladaj pelna liste przepisow."
+                    />
+
+                    <div className="ml-5 h-px bg-white/10" />
+
+                    <MenuLink
                         href="/polityka-prywatnosci"
                         title="Polityka prywatności"
                         description="Dowiedz się, jak przetwarzamy dane."

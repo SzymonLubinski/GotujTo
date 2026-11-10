@@ -4,6 +4,7 @@ import {AuthForm} from "@/components/web/AuthForm";
 import {isAuthenticated} from "@/lib/auth-server";
 
 export const metadata = {
+    robots: {index: false, follow: false},
     title: "Logowanie",
 };
 

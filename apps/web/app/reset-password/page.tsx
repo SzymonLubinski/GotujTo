@@ -3,6 +3,7 @@ import {Suspense} from "react";
 import {ResetPasswordForm} from "@/components/web/ResetPasswordForm";
 
 export const metadata = {
+    robots: {index: false, follow: false},
     title: "Ustaw nowe hasło",
 };
 

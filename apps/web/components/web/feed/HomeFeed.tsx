@@ -2,6 +2,8 @@
 
 import {type MouseEvent, useCallback, useEffect, useMemo, useRef, useState} from "react";
 import {useRouter} from "next/navigation";
+import dynamic from "next/dynamic";
+import Image from "next/image";
 import {usePaginatedQuery, useQuery} from "convex/react";
 import type {FunctionReturnType} from "convex/server";
 import {api} from "@gotujto/convex/_generated/api";
@@ -10,7 +12,6 @@ import type {ShortItemData} from "@gotujto/shared/types/result-type";
 import ShortItem from "@/components/web/short/ShortItem";
 import BlogShortItem from "@/components/web/short/BlogShortItem";
 import DealsShortsHeader from "@/components/web/feed/DealsShortsHeader";
-import StoresSheet from "@/components/web/feed/StoresSheet";
 import FridgeShortsSkeleton from "@/components/web/feed/FridgeShortsSkeleton";
 import {useShortFeed} from "@/lib/hooks/useShortFeed";
 import {orderBySessionSeed} from "@/lib/utils";
@@ -22,6 +23,11 @@ const LOAD_MORE_BLOGS_COUNT = 3;
 const STORES_STORAGE_KEY = "gotujto:selected-stores";
 const FEED_RETURN_KEY = "gotujto:feed-return";
 const RECIPE_RETURNING_KEY = "gotujto:recipe-returning";
+
+const StoresSheet = dynamic(
+    () => import("@/components/web/feed/StoresSheet"),
+    {ssr: false},
+);
 
 type FeedSession = {
     randomSeed: string;
@@ -454,16 +460,28 @@ export default function HomeFeed({initialRecipes}: HomeFeedProps) {
 
     return (
         <>
-            <div aria-hidden className="feed-desktop-background" />
+            <div aria-hidden className="feed-desktop-background">
+                <Image
+                    src="/images/feed-desktop-background.png"
+                    alt=""
+                    fill
+                    priority
+                    quality={60}
+                    sizes="100vw"
+                    className="object-cover"
+                />
+            </div>
 
             <DealsShortsHeader onStoresClick={() => setStoresOpen(true)} />
 
-            <StoresSheet
-                open={storesOpen}
-                onOpenChange={setStoresOpen}
-                selectedStores={selectedStores}
-                onSelectedStoresChange={setSelectedStores}
-            />
+            {storesOpen && (
+                <StoresSheet
+                    open={storesOpen}
+                    onOpenChange={setStoresOpen}
+                    selectedStores={selectedStores}
+                    onSelectedStoresChange={setSelectedStores}
+                />
+            )}
 
             {isInitialLoading ? (
                 <FridgeShortsSkeleton />

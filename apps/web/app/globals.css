@@ -124,7 +124,6 @@
     z-index: 0;
     display: block;
     pointer-events: none;
-    background-image: url("/images/feed-desktop-background.png");
     background-position: center;
     background-size: cover;
     background-attachment: fixed;

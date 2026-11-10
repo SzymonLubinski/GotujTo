@@ -1365,6 +1365,23 @@ export const getRecipesForSitemap = query({
     },
 });
 
+export const getRecipeDirectory = query({
+    args: {},
+    handler: async ctx => {
+        const recipes = await ctx.db
+            .query("recipes")
+            .order("desc")
+            .collect();
+
+        return recipes.map(recipe => ({
+            recipeId: recipe._id,
+            name: recipe.name,
+            description: recipe.description,
+            cookingMinutes: recipe.cookingMinutes,
+        }));
+    },
+});
+
 function getFeedRank(recipeId: Id<"recipes">) {
     return getSeededScore("feed-rank", recipeId);
 }

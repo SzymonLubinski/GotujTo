@@ -3,6 +3,7 @@ import {Suspense} from "react";
 import {VerificationEmailForm} from "@/components/web/VerificationEmailForm";
 
 export const metadata = {
+    robots: {index: false, follow: false},
     title: "Aktywuj konto",
 };
 

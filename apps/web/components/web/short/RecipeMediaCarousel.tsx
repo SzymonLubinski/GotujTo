@@ -45,6 +45,7 @@ export default function RecipeMediaCarousel({name, images, isMuted, onMutedChang
                         <div className="absolute inset-0 flex items-center justify-center">
                             <div className="h-[70%] w-full">
                                 <VideoPlayer src={videoUrl}
+                                             poster={images[0]}
                                              isMuted={isMuted}
                                              onMutedChange={onMutedChange}
                                              isActive={isActive}

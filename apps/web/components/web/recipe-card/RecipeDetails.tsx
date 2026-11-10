@@ -77,9 +77,9 @@ export function RecipeDetails({result}: RecipeDetailsProps) {
 
                 <section className="min-w-0 space-y-6 px-5 py-8 sm:px-8 lg:p-0">
                     <div className="flex items-start justify-between gap-4">
-                        <h2 className="text-2xl font-bold tracking-tight">
+                        <h1 className="text-2xl font-bold tracking-tight">
                             {recipe.name}
-                        </h2>
+                        </h1>
 
                         <div className="flex shrink-0 items-center gap-2">
                             <FavoriteRecipeButton recipeId={recipe._id} />

@@ -1,6 +1,7 @@
 import {PasswordResetRequestForm} from "@/components/web/PasswordResetRequestForm";
 
 export const metadata = {
+    robots: {index: false, follow: false},
     title: "Reset hasła",
 };
 

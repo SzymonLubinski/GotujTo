@@ -2,8 +2,15 @@ import {fetchQuery} from "convex/nextjs";
 import {api} from "@gotujto/convex/_generated/api";
 import HomeFeed from "@/components/web/feed/HomeFeed";
 import {connection} from "next/server";
+import type {Metadata} from "next";
 
 const siteUrl = "https://gotujto.com";
+
+export const metadata: Metadata = {
+    alternates: {
+        canonical: "/",
+    },
+};
 
 export default async function FeedPage() {
     // Convex's server client creates a random request identifier internally.
@@ -29,6 +36,14 @@ export default async function FeedPage() {
         })),
     };
 
+    const websiteStructuredData = {
+        "@context": "https://schema.org",
+        "@type": "WebSite",
+        name: "GotujTo",
+        alternateName: ["Gotuj To", "gotujto.com"],
+        url: siteUrl,
+    };
+
     return (
         <>
             <h1 className="sr-only">
@@ -38,6 +53,13 @@ export default async function FeedPage() {
                 type="application/ld+json"
                 dangerouslySetInnerHTML={{
                     __html: JSON.stringify(itemListStructuredData)
+                        .replace(/</g, "\\u003c"),
+                }}
+            />
+            <script
+                type="application/ld+json"
+                dangerouslySetInnerHTML={{
+                    __html: JSON.stringify(websiteStructuredData)
                         .replace(/</g, "\\u003c"),
                 }}
             />

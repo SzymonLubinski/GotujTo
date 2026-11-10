@@ -32,28 +32,25 @@ function getRecipeStructuredData(
         return null;
     }
 
-    const recipeIngredients = ingredientGroups.flatMap(group => {
-        const ingredient = group.ingredients[0];
+    const recipeIngredients = ingredientGroups.flatMap(group =>
+        group.ingredients.map(ingredient => {
+            const quantity = [
+                ingredient.metricQuantity,
+                ingredient.metricUnit,
+            ].filter(value => value !== null && value !== undefined).join(" ");
 
-        if (!ingredient) {
-            return [];
-        }
+            return `${quantity}${quantity ? " " : ""}${ingredient.productName}${ingredient.optional ? " (opcjonalnie)" : ""}`;
+        }),
+    );
 
-        const quantity = [
-            ingredient.metricQuantity,
-            ingredient.metricUnit,
-        ].filter(value => value !== null && value !== undefined).join(" ");
-
-        return [
-            `${quantity}${quantity ? " " : ""}${ingredient.productName}${ingredient.optional ? " (opcjonalnie)" : ""}`,
-        ];
-    });
+    const recipeUrl = new URL(`/recipe/${recipeId}`, siteUrl).toString();
+    const description = recipe.description?.trim() || `Przepis na ${recipe.name}.`;
 
     return {
         "@context": "https://schema.org",
         "@type": "Recipe",
         name: recipe.name,
-        description: recipe.description ?? undefined,
+        description,
         image: [image],
         author: {
             "@type": "Person",
@@ -69,10 +66,7 @@ function getRecipeStructuredData(
             ...recipe.occasions,
         ].join(", ") || undefined,
         inLanguage: "pl-PL",
-        mainEntityOfPage: new URL(
-            `/recipe/${recipeId}`,
-            siteUrl,
-        ).toString(),
+        mainEntityOfPage: recipeUrl,
         recipeIngredient: recipeIngredients,
         recipeInstructions: [...steps]
             .sort((first, second) => first.stepNum - second.stepNum)
@@ -80,7 +74,21 @@ function getRecipeStructuredData(
                 "@type": "HowToStep",
                 name: `Krok ${step.stepNum}`,
                 text: step.description,
+                url: `${recipeUrl}#krok-${step.stepNum}`,
+                image,
             })),
+        ...(recipe.videoKey
+            ? {
+                video: {
+                    "@type": "VideoObject",
+                    name: recipe.name,
+                    description,
+                    thumbnailUrl: image,
+                    uploadDate: new Date(recipe._creationTime).toISOString(),
+                    contentUrl: recipe.videoKey,
+                },
+            }
+            : {}),
     };
 }
 

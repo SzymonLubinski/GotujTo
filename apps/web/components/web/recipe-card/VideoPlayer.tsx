@@ -5,6 +5,7 @@ import { Play, Volume2, VolumeX } from "lucide-react"
 
 type VideoPlayerProps = {
     src: string
+    poster?: string
     isActive?: boolean
     isNearby?: boolean
     isMuted?: boolean
@@ -12,7 +13,7 @@ type VideoPlayerProps = {
     onMutedChange?: (muted: boolean) => void
 }
 
-export default function VideoPlayer({ src, isActive, isNearby, autoPlay, isMuted, onMutedChange }: VideoPlayerProps) {
+export default function VideoPlayer({ src, poster, isActive, isNearby, autoPlay, isMuted, onMutedChange }: VideoPlayerProps) {
     const videoRef = useRef<HTMLVideoElement>(null)
     const [internalMuted, setInternalMuted] = useState(true)
     const [isPaused, setIsPaused] = useState(false)
@@ -68,6 +69,7 @@ export default function VideoPlayer({ src, isActive, isNearby, autoPlay, isMuted
         <div onClick={togglePlayback} className="relative h-full w-full">
             <video ref={videoRef}
                    src={src}
+                   poster={poster}
                    muted={muted}
                    playsInline
                    loop

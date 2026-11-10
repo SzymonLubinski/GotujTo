@@ -34,10 +34,6 @@ export const metadata: Metadata = {
 
     applicationName: "GotujTo",
 
-    alternates: {
-        canonical: "/",
-    },
-
     openGraph: {
         type: "website",
         locale: "pl_PL",
