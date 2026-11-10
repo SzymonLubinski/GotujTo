@@ -221,6 +221,7 @@ export default function HomeFeed({initialRecipes}: HomeFeedProps) {
     const [isMuted, setIsMuted] = useState(true);
     const [storesOpen, setStoresOpen] = useState(false);
     const [selectedStores, setSelectedStores] = useState<StoresT[]>([]);
+    const [hasAppliedStoreSelection, setHasAppliedStoreSelection] = useState(false);
     const [limit, setLimit] = useState(INITIAL_SHORTS_COUNT);
     const [feedSession, setFeedSession] = useState<FeedSession | null>(null);
     const [initialRecipesCount, setInitialRecipesCount] = useState(INITIAL_SHORTS_COUNT);
@@ -280,6 +281,7 @@ export default function HomeFeed({initialRecipes}: HomeFeedProps) {
                 stores: selectedStores,
                 limit: 30,
                 asOf: feedSession.createdBefore,
+                randomSeed: feedSession.randomSeed,
             }
             : "skip",
     );
@@ -299,10 +301,12 @@ export default function HomeFeed({initialRecipes}: HomeFeedProps) {
     const additionalPriorityRecipes = priorityRecipes.filter(
         item => !initialRecipeIds.has(item.recipe._id),
     );
-    const excludedRecipeIds = [
-        ...initialRecipeIds,
-        ...additionalPriorityRecipes.map(item => item.recipe._id),
-    ];
+    const excludedRecipeIds = hasAppliedStoreSelection
+        ? priorityRecipes.map(item => item.recipe._id)
+        : [
+            ...initialRecipeIds,
+            ...additionalPriorityRecipes.map(item => item.recipe._id),
+        ];
 
     const {results, status, loadMore} = usePaginatedQuery(
         api.recipes.getRecipesPaginated,
@@ -333,7 +337,9 @@ export default function HomeFeed({initialRecipes}: HomeFeedProps) {
         status !== "LoadingFirstPage" &&
         blogStatus !== "LoadingFirstPage";
     const recipeItems = liveFeedReady
-        ? [...initialRecipes, ...additionalPriorityRecipes, ...results]
+        ? hasAppliedStoreSelection
+            ? [...priorityRecipes, ...results]
+            : [...initialRecipes, ...additionalPriorityRecipes, ...results]
         : initialRecipes;
     const {items: feedItems, blockedByBlog} = useMemo(
         () => createFeedItems(
@@ -467,6 +473,14 @@ export default function HomeFeed({initialRecipes}: HomeFeedProps) {
         router.push(`${url.pathname}${url.search}${url.hash}`, {scroll: false});
     }
 
+    function handleSelectedStoresChange(nextStores: StoresT[]) {
+        setHasAppliedStoreSelection(true);
+        setSelectedStores(nextStores);
+        setFeedSession(createFeedSession());
+        setLimit(INITIAL_SHORTS_COUNT);
+        scrollContainerRef.current?.scrollTo({top: 0});
+    }
+
     return (
         <>
             <div aria-hidden className="feed-desktop-background">
@@ -488,7 +502,7 @@ export default function HomeFeed({initialRecipes}: HomeFeedProps) {
                     open={storesOpen}
                     onOpenChange={setStoresOpen}
                     selectedStores={selectedStores}
-                    onSelectedStoresChange={setSelectedStores}
+                    onSelectedStoresChange={handleSelectedStoresChange}
                 />
             )}
 

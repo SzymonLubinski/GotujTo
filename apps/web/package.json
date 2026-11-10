@@ -3,6 +3,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
+    "dev:local": "node --env-file=\"../../../gotujto-secrets/web/.env.local\" \"../../../gotujto-secrets/run-with-env.mjs\" \".\" pnpm dev --webpack",
     "build": "next build",
     "start": "next start"
   },

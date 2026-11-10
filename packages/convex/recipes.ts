@@ -22,6 +22,23 @@ const DEFAULT_FRIDGE_LIMIT = 30;
 const MAX_FRIDGE_LIMIT = 30;
 const MAX_IMAGE_SIZE = 10 * 1024 * 1024;
 
+const dietSearchAliases: Record<string, readonly (typeof dietTypes)[number][]> = {
+    wege: ["vege", "vegan"],
+    wegetarianski: ["vege"],
+    wegetarianska: ["vege"],
+    wegetarianskie: ["vege"],
+    wegan: ["vegan"],
+    weganska: ["vegan"],
+    weganskie: ["vegan"],
+};
+
+function normalizeCategorySearchQuery(value: string) {
+    return value
+        .normalize("NFD")
+        .replace(/\p{Diacritic}/gu, "")
+        .toLowerCase();
+}
+
 const allowedImageTypes = new Set([
     "image/jpeg",
     "image/png",
@@ -556,6 +573,7 @@ export const searchRecipes = query({
     },
     handler: async (ctx, args) => {
         const searchQuery = args.query.trim().toLowerCase();
+        const categorySearchQuery = normalizeCategorySearchQuery(searchQuery);
 
         if (searchQuery.length === 0) {
             return {
@@ -569,10 +587,13 @@ export const searchRecipes = query({
         }
 
         const matchQuery = <T extends string>(items: readonly T[]) => {
-            return items.filter(item => item.toLowerCase().includes(searchQuery));
+            return items.filter(item => item.toLowerCase().includes(categorySearchQuery));
         };
 
-        const filteredDiets = new Set(matchQuery(dietTypes));
+        const filteredDiets = new Set([
+            ...matchQuery(dietTypes),
+            ...(dietSearchAliases[categorySearchQuery] ?? []),
+        ]);
         const filteredOccasions = new Set(matchQuery(occasions));
         const filteredMealTypes = new Set(matchQuery(mealTypes));
         const hasMatchingCategory =
@@ -858,6 +879,7 @@ export const getRecipesByDeals = query({
         stores: v.array(v.union(...stores.map(store => v.literal(store)))),
         limit: v.optional(v.number()),
         asOf: v.optional(v.number()),
+        randomSeed: v.optional(v.string()),
     },
     handler: async (ctx, args) => {
         const asOf = args.asOf ?? Date.now();
@@ -912,7 +934,14 @@ export const getRecipesByDeals = query({
             [...bestDealByProductId.keys()],
             bestDealByProductId,
         );
-        candidates.sort(compareRecipeCandidates);
+        if (args.randomSeed) {
+            candidates.sort((first, second) =>
+                getSeededScore(args.randomSeed!, first.recipeId) -
+                getSeededScore(args.randomSeed!, second.recipeId),
+            );
+        } else {
+            candidates.sort(compareRecipeCandidates);
+        }
         const selectedCandidates = await getCandidateDetails(
             ctx,
             candidates.slice(0, resultLimit),
@@ -1113,6 +1142,7 @@ export const getRecipesPaginated = query({
 export const getHomeFeedRecipes = query({
     args: {
         limit: v.optional(v.number()),
+        randomSeed: v.optional(v.string()),
     },
     handler: async (ctx, args) => {
         const limit = normalizeLimit(
@@ -1123,10 +1153,18 @@ export const getHomeFeedRecipes = query({
         const recipes = await ctx.db
             .query("recipes")
             .order("desc")
-            .take(limit);
+            .collect();
+        const selectedRecipes = args.randomSeed
+            ? recipes
+                .sort((first, second) =>
+                    getSeededScore(args.randomSeed!, first._id) -
+                    getSeededScore(args.randomSeed!, second._id),
+                )
+                .slice(0, limit)
+            : recipes.slice(0, limit);
 
         return await Promise.all(
-            recipes.map(async recipe => ({
+            selectedRecipes.map(async recipe => ({
                 recipe: {
                     ...recipe,
                     ...await getRecipeMedia(ctx, recipe),

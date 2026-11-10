@@ -6,6 +6,7 @@ import { api } from "@gotujto/convex/_generated/api"
 import { useDebouncedValue } from "@/lib/hooks/useDebouncedValue"
 import SearchForm from "./SearchForm"
 import SearchResults from "./SearchResults"
+import SearchResultsSkeleton from "./SearchResultsSkeleton"
 
 const SEARCH_DEBOUNCE_MS = 300
 
@@ -22,11 +23,11 @@ export default function SearchView() {
     )
 
     return (
-        <div className="flex min-h-dvh flex-col">
+        <div className="relative flex h-full flex-col overflow-hidden">
             <SearchForm query={query} onQueryChange={setQuery} />
-            {results && (
-                <SearchResults query={debouncedQuery} results={results} />
-            )}
+            <div className="feed-desktop-scrollbar-gutter flex-1 overflow-y-auto pb-24">
+                {debouncedQuery && !results ? <SearchResultsSkeleton /> : <SearchResults query={debouncedQuery} results={results} />}
+            </div>
         </div>
     )
 }

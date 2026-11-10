@@ -6,7 +6,7 @@ import {Toaster} from "@/components/ui/sonner";
 import {ThemeProvider} from "@/components/ui/theme-provider";
 import {getToken} from "@/lib/auth-server";
 import React, {Suspense} from "react";
-import { GoogleAnalytics } from "@next/third-parties/google";
+import {AnalyticsConsent} from "@/components/web/AnalyticsConsent";
 
 
 const geistSans = Geist({
@@ -79,7 +79,7 @@ export default function RootLayout({children}:Readonly<{children: React.ReactNod
             </Suspense>
             <Toaster closeButton/>
         </ThemeProvider>
-        <GoogleAnalytics gaId="G-8EK57W2DGW" />
+        <AnalyticsConsent />
         </body>
         </html>
     );

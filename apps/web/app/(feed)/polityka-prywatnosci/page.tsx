@@ -1,6 +1,7 @@
 import Link from "next/link";
+import {AnalyticsConsentSettingsButton} from "@/components/web/AnalyticsConsentSettingsButton";
 
-const LAST_UPDATED = "14 października 2026 r.";
+const LAST_UPDATED = "10 listopada 2026 r.";
 const CONTACT_EMAIL = "szymon.lubinski.it@gmail.com";
 
 export default function PrivacyPolicyPage() {
@@ -32,6 +33,7 @@ export default function PrivacyPolicyPage() {
                             <p>W zależności od sposobu korzystania z Serwisu możemy przetwarzać:</p>
                             <ul>
                                 <li>dane konta: adres e-mail, nazwę wyświetlaną, identyfikator konta, informacje o metodzie logowania oraz dane niezbędne do obsługi sesji;</li>
+                                <li>informację o akceptacji Regulaminu: wersję dokumentu i datę akceptacji;</li>
                                 <li>w przypadku logowania hasłem — hasło w postaci zabezpieczonej przez system uwierzytelniania, a nie w postaci jawnej;</li>
                                 <li>opcjonalny avatar oraz treści dodane przez użytkownika, w tym przepisy, wpisy blogowe, komentarze, zdjęcia i materiały wideo;</li>
                                 <li>dane dotyczące korzystania z funkcji konta: ulubione przepisy i wpisy, produkty zapisane w lodówce oraz status zgłoszeń do weryfikacji;</li>
@@ -44,6 +46,8 @@ export default function PrivacyPolicyPage() {
                         <Section title="3. Cele i podstawy przetwarzania">
                             <ul>
                                 <li>utworzenie i prowadzenie konta, logowanie, weryfikacja adresu e-mail, reset hasła, ochrona konta oraz udostępnienie funkcji konta — wykonanie umowy o świadczenie usługi elektronicznej (art. 6 ust. 1 lit. b RODO);</li>
+                                <li>udokumentowanie akceptacji Regulaminu - prawnie uzasadniony interes Administratora polegający na wykazaniu warunków korzystania z Serwisu (art. 6 ust. 1 lit. f RODO);</li>
+                                <li>analityka ruchu Google Analytics - dobrowolna zgoda na cookies analityczne (art. 6 ust. 1 lit. a RODO);</li>
                                 <li>obsługa logowania przez Google — wykonanie umowy o świadczenie usługi elektronicznej; Google jest odrębnym dostawcą tej metody logowania;</li>
                                 <li>publikacja avatara, nazwy wyświetlanej, zatwierdzonych przepisów, wpisów blogowych i komentarzy — wykonanie umowy o świadczenie usługi elektronicznej oraz prawnie uzasadniony interes Administratora polegający na prowadzeniu społeczności Serwisu (art. 6 ust. 1 lit. b i f RODO);</li>
                                 <li>moderacja treści i zapobieganie naruszeniom prawa lub nadużyciom — prawnie uzasadniony interes Administratora (art. 6 ust. 1 lit. f RODO);</li>
@@ -70,7 +74,7 @@ export default function PrivacyPolicyPage() {
                                 <li>Vercel — hosting i obsługa działania strony;</li>
                                 <li>Convex — baza danych, funkcje serwerowe, obsługa kont i ogranicznik formularza;</li>
                                 <li>Resend — wysyłka wiadomości z formularza kontaktowego oraz wiadomości związanych z kontem, w tym aktywacji i resetu hasła;</li>
-                                <li>Google — logowanie za pośrednictwem konta Google, jeżeli użytkownik wybierze tę metodę;</li>
+                                <li>Google - logowanie za pośrednictwem konta Google, jeżeli użytkownik wybierze tę metodę, oraz Google Analytics - wyłącznie po wyrażeniu zgody na cookies analityczne;</li>
                                 <li>Cloudflare R2 — przechowywanie materiałów wideo i avatarów.</li>
                             </ul>
                             <p>Nie sprzedajemy danych osobowych. Nie wykorzystujemy ich do reklamy behawioralnej ani do podejmowania zautomatyzowanych decyzji wywołujących skutki prawne wobec użytkownika.</p>
@@ -81,9 +85,11 @@ export default function PrivacyPolicyPage() {
                         </Section>
 
                         <Section title="7. Cookies i pamięć przeglądarki">
-                            <p>Serwis nie używa plików cookie do celów analitycznych, marketingowych ani reklamowych. Nie korzystamy z narzędzi analityki ruchu ani pikseli reklamowych.</p>
+                            <p>Po wyrażeniu dobrowolnej zgody Serwis używa Google Analytics do zbiorczego pomiaru ruchu i ulepszania Serwisu. Zgoda nie jest domyślnie zaznaczona i można jej odmówić; odmowa nie ogranicza dostępu do Serwisu.</p>
+                            <p>Wybór dotyczący cookies analitycznych zapisujemy lokalnie w przeglądarce do czasu jego zmiany lub wyczyszczenia danych przeglądarki.</p>
                             <p>Po zalogowaniu Serwis korzysta z niezbędnych technicznie plików cookie lub podobnych mechanizmów sesyjnych, aby utrzymać sesję, zabezpieczyć konto i obsłużyć logowanie. Bez nich funkcje konta nie mogłyby działać prawidłowo.</p>
                             <p>Dla działania części funkcji Serwis może wykorzystywać <code>sessionStorage</code> przeglądarki, np. do zapamiętania wybranych sklepów lub miejsca powrotu na feedzie. Dane te pozostają na urządzeniu użytkownika i nie są wykorzystywane do śledzenia między stronami. Można je usunąć w ustawieniach przeglądarki.</p>
+                            <AnalyticsConsentSettingsButton />
                         </Section>
 
                         <Section title="8. Twoje prawa">

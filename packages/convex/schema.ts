@@ -77,6 +77,12 @@ export default defineSchema({
         expiresAt: v.number(),
     }).index("by_key", ["key"]),
 
+    termsAcceptances: defineTable({
+        userId: v.string(),
+        termsVersion: v.string(),
+        acceptedAt: v.number(),
+    }).index("by_userId", ["userId"]),
+
     favoriteRecipes: defineTable({
         userId: v.string(),
         recipeId: v.id("recipes"),

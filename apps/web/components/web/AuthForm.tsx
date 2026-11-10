@@ -9,6 +9,7 @@ import {authClient} from "@/lib/auth-client";
 import {Button} from "@/components/ui/button";
 import {Input} from "@/components/ui/input";
 import {Label} from "@/components/ui/label";
+import {markTermsAcceptancePending} from "@/components/web/TermsAcceptanceRecorder";
 
 type AuthMode = "login" | "register";
 
@@ -48,6 +49,8 @@ export function AuthForm({mode}: AuthFormProps) {
     const [isPending, setIsPending] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [notice, setNotice] = useState<string | null>(null);
+    const [hasAcceptedTerms, setHasAcceptedTerms] = useState(false);
+    const [termsError, setTermsError] = useState<string | null>(null);
 
     useEffect(() => {
         if (!isSessionPending && session) {
@@ -59,12 +62,22 @@ export function AuthForm({mode}: AuthFormProps) {
         event.preventDefault();
         setError(null);
         setNotice(null);
+        setTermsError(null);
 
         const form = event.currentTarget;
         const formData = new FormData(form);
         const email = String(formData.get("email") ?? "").trim();
         const password = String(formData.get("password") ?? "");
         const name = String(formData.get("name") ?? "").trim();
+
+        if (isRegistering && !hasAcceptedTerms) {
+            setTermsError("Aby utworzyc konto, zaakceptuj Regulamin i Polityke prywatnosci.");
+            return;
+        }
+
+        if (isRegistering) {
+            markTermsAcceptancePending();
+        }
 
         setIsPending(true);
 
@@ -116,6 +129,17 @@ export function AuthForm({mode}: AuthFormProps) {
     async function handleGoogleSignIn() {
         setError(null);
         setNotice(null);
+        setTermsError(null);
+
+        if (isRegistering && !hasAcceptedTerms) {
+            setTermsError("Aby utworzyc konto, zaakceptuj Regulamin i Polityke prywatnosci.");
+            return;
+        }
+
+        if (isRegistering) {
+            markTermsAcceptancePending();
+        }
+
         setIsPending(true);
 
         try {
@@ -193,6 +217,26 @@ export function AuthForm({mode}: AuthFormProps) {
                     />
                     {isRegistering && <p className="text-xs text-zinc-500">Co najmniej 8 znaków.</p>}
                 </div>
+
+                {isRegistering && (
+                    <>
+                        <label className="flex cursor-pointer items-start gap-3 text-sm leading-5 text-zinc-300">
+                            <input
+                                checked={hasAcceptedTerms}
+                                className="mt-1 size-4 shrink-0 accent-lime-400"
+                                onChange={event => {
+                                    setHasAcceptedTerms(event.target.checked);
+                                    setTermsError(null);
+                                }}
+                                type="checkbox"
+                            />
+                            <span>
+                                Akceptuje <Link className="text-lime-300 underline underline-offset-4 hover:text-lime-200" href="/regulamin" target="_blank">Regulamin</Link> oraz <Link className="text-lime-300 underline underline-offset-4 hover:text-lime-200" href="/polityka-prywatnosci" target="_blank">Polityke prywatnosci</Link>.
+                            </span>
+                        </label>
+                        {termsError && <p role="alert" className="rounded-xl border border-red-400/30 bg-red-950/30 px-3 py-2 text-sm text-red-200">{termsError}</p>}
+                    </>
+                )}
 
                 {error && <p role="alert" className="rounded-xl border border-red-400/30 bg-red-950/30 px-3 py-2 text-sm text-red-200">{error}</p>}
                 {notice && <p role="status" className="rounded-xl border border-lime-400/30 bg-lime-400/10 px-3 py-2 text-sm text-lime-100">{notice}</p>}

@@ -13,6 +13,7 @@
     "@types/node": "^20.19.43"
   },
   "scripts": {
-    "dev": "convex dev"
+    "dev": "convex dev",
+    "dev:local": "node --env-file=\"../../../gotujto-secrets/convex/.env.local\" \"../../../gotujto-secrets/run-with-env.mjs\" \".\" pnpm exec convex dev"
   }
 }

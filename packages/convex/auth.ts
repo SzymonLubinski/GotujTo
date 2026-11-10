@@ -103,6 +103,8 @@ export const createAuthOptions = (ctx: GenericCtx<DataModel>) =>
         baseURL: process.env.SITE_URL ?? process.env.CONVEX_SITE_URL,
         trustedOrigins: [
             ...(process.env.SITE_URL ? [process.env.SITE_URL] : []),
+            "http://localhost:3000",
+            "http://127.0.0.1:3000",
             // Expo Web runs locally on port 8081. These origins are needed
             // for the browser's CORS preflight before calling the Convex site.
             "http://localhost:8081",

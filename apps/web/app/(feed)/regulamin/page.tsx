@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-const LAST_UPDATED = "14 października 2026 r.";
+const LAST_UPDATED = "10 listopada 2026 r.";
 const CONTACT_EMAIL = "szymon.lubinski.it@gmail.com";
 
 export default function TermsPage() {
@@ -40,6 +40,7 @@ export default function TermsPage() {
 
                         <Section title="3. Konto użytkownika i logowanie">
                             <p>Konto można utworzyć za pomocą adresu e-mail i hasła albo przez logowanie z użyciem konta Google. Rejestracja przy użyciu adresu e-mail wymaga potwierdzenia adresu przez link aktywacyjny wysłany na podany adres.</p>
+                            <p>Przed utworzeniem konta użytkownik potwierdza zapoznanie się z Regulaminem i Polityką prywatności. Informację o akceptacji wraz z wersją Regulaminu zapisujemy przy koncie.</p>
                             <p>Użytkownik ma obowiązek podać prawdziwe dane, chronić hasło i nie udostępniać dostępu do konta innym osobom. W razie podejrzenia nieuprawnionego dostępu powinien niezwłocznie zmienić hasło lub skontaktować się z Usługodawcą.</p>
                             <p>Użytkownik może w każdej chwili usunąć konto z poziomu ustawień profilu. Podczas usuwania konta może zdecydować, czy zatwierdzone przepisy mają zostać usunięte, czy pozostać opublikowane pod autorstwem GotujTo. Zasady przetwarzania danych po usunięciu konta opisuje Polityka prywatności.</p>
                         </Section>

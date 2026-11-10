@@ -16,10 +16,22 @@ export default async function FeedPage() {
     // Convex's server client creates a random request identifier internally.
     // This feed must therefore render at request time, not during static export.
     await connection();
+    const feedSeed = crypto.randomUUID();
 
-    const initialRecipes = await fetchQuery(api.recipes.getHomeFeedRecipes, {
-        limit: 6,
-    });
+    const [dealRecipes, homeRecipes] = await Promise.all([
+        fetchQuery(api.recipes.getRecipesByDeals, {
+            stores: [],
+            limit: 6,
+            randomSeed: feedSeed,
+        }),
+        fetchQuery(api.recipes.getHomeFeedRecipes, {
+            limit: 6,
+            randomSeed: feedSeed,
+        }),
+    ]);
+    const initialRecipes = dealRecipes.length > 0
+        ? dealRecipes
+        : homeRecipes;
 
     const itemListStructuredData = {
         "@context": "https://schema.org",
