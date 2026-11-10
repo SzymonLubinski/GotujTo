@@ -1,10 +1,15 @@
 import {fetchQuery} from "convex/nextjs";
 import {api} from "@gotujto/convex/_generated/api";
 import HomeFeed from "@/components/web/feed/HomeFeed";
+import {connection} from "next/server";
 
 const siteUrl = "https://gotujto.com";
 
 export default async function FeedPage() {
+    // Convex's server client creates a random request identifier internally.
+    // This feed must therefore render at request time, not during static export.
+    await connection();
+
     const initialRecipes = await fetchQuery(api.recipes.getHomeFeedRecipes, {
         limit: 6,
     });
