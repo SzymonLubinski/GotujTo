@@ -9,7 +9,6 @@ import {authClient} from "@/lib/auth-client";
 import {Button} from "@/components/ui/button";
 import {Input} from "@/components/ui/input";
 import {Label} from "@/components/ui/label";
-import {markTermsAcceptancePending} from "@/components/web/TermsAcceptanceRecorder";
 
 type AuthMode = "login" | "register";
 
@@ -75,10 +74,6 @@ export function AuthForm({mode}: AuthFormProps) {
             return;
         }
 
-        if (isRegistering) {
-            markTermsAcceptancePending();
-        }
-
         setIsPending(true);
 
         try {
@@ -136,16 +131,12 @@ export function AuthForm({mode}: AuthFormProps) {
             return;
         }
 
-        if (isRegistering) {
-            markTermsAcceptancePending();
-        }
-
         setIsPending(true);
 
         try {
             const result = await authClient.signIn.social({
                 provider: "google",
-                callbackURL: "/profile",
+                callbackURL: "/accept-terms?next=/profile",
             });
 
             if (result.error) {

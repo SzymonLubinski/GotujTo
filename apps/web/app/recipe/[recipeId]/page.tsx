@@ -3,7 +3,6 @@ import {api} from "@gotujto/convex/_generated/api";
 import {type Id} from "@gotujto/convex/_generated/dataModel";
 import {RecipeDetails} from "@/components/web/recipe-card/RecipeDetails";
 import type {Metadata} from "next";
-import {AdminRecipeEditButton} from "@/components/web/recipe-card/AdminRecipeEditButton";
 import {notFound} from "next/navigation";
 import type {RecipeResultsType} from "@gotujto/shared/types/result-type";
 
@@ -216,7 +215,6 @@ export default async function RecipePage({params, searchParams}: RecipePageProps
                     }}
                 />
             )}
-            <AdminRecipeEditButton recipeId={recipeId}/>
             <RecipeDetails result={result} />
         </>
     )

@@ -5,6 +5,7 @@ import {authComponent, createAuth} from "./auth";
 import {customaryUnits, dietTypes, mealTypes, metricUnits, occasions} from "../shared/data/stableData";
 import {requireAdmin} from "./lib/requireAdmin";
 import {internal} from "./_generated/api";
+import {TERMS_VERSION} from "../shared/data/legal";
 
 
 type AuthenticatedCtx = QueryCtx | MutationCtx;
@@ -16,6 +17,18 @@ async function requireUser(ctx: AuthenticatedCtx) {
         throw new ConvexError({
             code: "UNAUTHENTICATED",
             message: "Zaloguj sie, aby wykonac te operacje.",
+        });
+    }
+
+    const termsAcceptance = await ctx.db
+        .query("termsAcceptances")
+        .withIndex("by_userId", index => index.eq("userId", user._id))
+        .unique();
+
+    if (termsAcceptance?.termsVersion !== TERMS_VERSION) {
+        throw new ConvexError({
+            code: "TERMS_NOT_ACCEPTED",
+            message: "Zaakceptuj Regulamin, aby korzystac z funkcji konta.",
         });
     }
 
@@ -777,6 +790,24 @@ export const getFavoriteState = query({
     },
 });
 
+export const getRecipeEngagement = query({
+    args: {
+        recipeId: v.id("recipes"),
+    },
+    handler: async (ctx, args) => {
+        const recipe = await ctx.db.get(args.recipeId);
+
+        if (!recipe) {
+            return null;
+        }
+
+        return {
+            favoriteCount: recipe.favoriteCount ?? 0,
+            commentCount: recipe.commentCount ?? 0,
+        };
+    },
+});
+
 export const toggleFavoriteRecipe = mutation({
     args: {
         recipeId: v.id("recipes"),
@@ -983,6 +1014,24 @@ export const getBlogFavoriteState = query({
             .first();
 
         return favorite !== null;
+    },
+});
+
+export const getBlogEngagement = query({
+    args: {
+        blogId: v.id("blog"),
+    },
+    handler: async (ctx, args) => {
+        const blog = await ctx.db.get(args.blogId);
+
+        if (!blog) {
+            return null;
+        }
+
+        return {
+            favoriteCount: blog.favoriteCount ?? 0,
+            commentCount: blog.commentCount ?? 0,
+        };
     },
 });
 

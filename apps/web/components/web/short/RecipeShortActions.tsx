@@ -2,7 +2,9 @@
 
 import {MessageCircle, Share2} from "lucide-react";
 import {toast} from "sonner";
+import {useQuery} from "convex/react";
 
+import {api} from "@gotujto/convex/_generated/api";
 import type {Id} from "@gotujto/convex/_generated/dataModel";
 import {FavoriteRecipeButton} from "@/components/web/recipe-card/FavoriteRecipeButton";
 import {RecipeCommentsSheet} from "@/components/web/recipe-card/RecipeComments";
@@ -23,6 +25,10 @@ function formatCount(count: number) {
 }
 
 export function RecipeShortActions({recipeId, recipeName, favoriteCount, commentCount}: RecipeShortActionsProps) {
+    const engagement = useQuery(api.userDashboard.getRecipeEngagement, {recipeId});
+    const currentFavoriteCount = engagement?.favoriteCount ?? favoriteCount;
+    const currentCommentCount = engagement?.commentCount ?? commentCount;
+
     async function shareRecipe() {
         const url = `${window.location.origin}/recipe/${recipeId}`;
 
@@ -51,7 +57,7 @@ export function RecipeShortActions({recipeId, recipeName, favoriteCount, comment
         <aside aria-label="Akcje przepisu" className="pointer-events-auto absolute right-3 top-1/2 z-40 flex -translate-y-1/2 flex-col items-center gap-4 text-white">
             <div className="flex flex-col items-center gap-0.5">
                 <FavoriteRecipeButton recipeId={recipeId} appearance="short" />
-                <span className="text-sm font-medium text-white/90">{formatCount(favoriteCount)}</span>
+                <span className="text-sm font-medium text-white/90">{formatCount(currentFavoriteCount)}</span>
             </div>
 
             <RecipeCommentsSheet recipeId={recipeId} recipeName={recipeName}>
@@ -59,7 +65,7 @@ export function RecipeShortActions({recipeId, recipeName, favoriteCount, comment
                     <Button type="button" variant="ghost" size="icon" aria-label="Otworz komentarze" className="size-8 rounded-full bg-transparent text-white shadow-none hover:bg-white/10 hover:text-white">
                         <MessageCircle className="size-5.5 stroke-[2.5] drop-shadow-[0_1px_3px_rgba(0,0,0,0.9)]" />
                     </Button>
-                    <span className="text-sm font-medium text-white/90">{formatCount(commentCount)}</span>
+                    <span className="text-sm font-medium text-white/90">{formatCount(currentCommentCount)}</span>
                 </div>
             </RecipeCommentsSheet>
 

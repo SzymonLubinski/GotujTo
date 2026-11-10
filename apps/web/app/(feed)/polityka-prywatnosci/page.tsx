@@ -86,7 +86,7 @@ export default function PrivacyPolicyPage() {
 
                         <Section title="7. Cookies i pamięć przeglądarki">
                             <p>Po wyrażeniu dobrowolnej zgody Serwis używa Google Analytics do zbiorczego pomiaru ruchu i ulepszania Serwisu. Zgoda nie jest domyślnie zaznaczona i można jej odmówić; odmowa nie ogranicza dostępu do Serwisu.</p>
-                            <p>Wybór dotyczący cookies analitycznych zapisujemy lokalnie w przeglądarce do czasu jego zmiany lub wyczyszczenia danych przeglądarki.</p>
+                            <p>Wybór dotyczący cookies analitycznych zapisujemy w przeglądarce przez 6 miesięcy albo do czasu zmiany ustawień lub wyczyszczenia danych przeglądarki.</p>
                             <p>Po zalogowaniu Serwis korzysta z niezbędnych technicznie plików cookie lub podobnych mechanizmów sesyjnych, aby utrzymać sesję, zabezpieczyć konto i obsłużyć logowanie. Bez nich funkcje konta nie mogłyby działać prawidłowo.</p>
                             <p>Dla działania części funkcji Serwis może wykorzystywać <code>sessionStorage</code> przeglądarki, np. do zapamiętania wybranych sklepów lub miejsca powrotu na feedzie. Dane te pozostają na urządzeniu użytkownika i nie są wykorzystywane do śledzenia między stronami. Można je usunąć w ustawieniach przeglądarki.</p>
                             <AnalyticsConsentSettingsButton />
