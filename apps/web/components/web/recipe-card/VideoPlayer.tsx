@@ -11,12 +11,14 @@ type VideoPlayerProps = {
     isMuted?: boolean
     autoPlay: boolean
     onMutedChange?: (muted: boolean) => void
+    onError?: () => void
 }
 
-export default function VideoPlayer({ src, poster, isActive, isNearby, autoPlay, isMuted, onMutedChange }: VideoPlayerProps) {
+export default function VideoPlayer({ src, poster, isActive, isNearby, autoPlay, isMuted, onMutedChange, onError }: VideoPlayerProps) {
     const videoRef = useRef<HTMLVideoElement>(null)
     const [internalMuted, setInternalMuted] = useState(true)
     const [isPaused, setIsPaused] = useState(false)
+    const [canPlay, setCanPlay] = useState(false)
     const [progress, setProgress] = useState(0)
 
     const active = isActive ?? true
@@ -28,12 +30,12 @@ export default function VideoPlayer({ src, poster, isActive, isNearby, autoPlay,
 
         if (!video) return
 
-        if (active) {
+        if (active && autoPlay) {
             video.play().catch(() => {})
         } else {
             video.pause()
         }
-    }, [active])
+    }, [active, autoPlay])
 
     function togglePlayback() {
         const video = videoRef.current
@@ -74,11 +76,13 @@ export default function VideoPlayer({ src, poster, isActive, isNearby, autoPlay,
                    playsInline
                    loop
                    preload={shouldPreload ? "auto" : "metadata"}
+                   onCanPlay={() => setCanPlay(true)}
+                   onError={onError}
                    onPlay={() => setIsPaused(false)}
                    onPause={() => setIsPaused(true)}
                    onTimeUpdate={handleTimeUpdate}
                    className="h-full w-full object-cover"
-                   autoPlay
+                   autoPlay={autoPlay}
             />
 
             <button type="button" onClick={event => {
@@ -89,7 +93,7 @@ export default function VideoPlayer({ src, poster, isActive, isNearby, autoPlay,
                 {muted ? <VolumeX className="size-5" /> : <Volume2 className="size-5" />}
             </button>
 
-            {isPaused && (
+            {canPlay && isPaused && (
                 <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
                     <div className="flex size-16 items-center justify-center rounded-full bg-black/40 backdrop-blur-sm">
                         <Play className="ml-1 size-8 fill-white text-white" />

@@ -97,10 +97,10 @@ export const authComponent = createClient<DataModel>(components.betterAuth);
 export const createAuthOptions = (ctx: GenericCtx<DataModel>) =>
     ({
         appName: "GotujTo",
-        // Expo Web calls Better Auth directly on the Convex site. The fallback
-        // preserves the existing local web setup until the backend provides its
-        // canonical site URL.
-        baseURL: process.env.CONVEX_SITE_URL ?? process.env.SITE_URL,
+        // Next.js proxies Better Auth through gotujto.com/api/auth. Prefer the
+        // public application URL so OAuth callbacks create a session on the
+        // same origin that serves the web app.
+        baseURL: process.env.SITE_URL ?? process.env.CONVEX_SITE_URL,
         trustedOrigins: [
             ...(process.env.SITE_URL ? [process.env.SITE_URL] : []),
             // Expo Web runs locally on port 8081. These origins are needed

@@ -18,7 +18,9 @@ type RecipeMediaCarouselProps = {
 export default function RecipeMediaCarousel({name, images, isMuted, onMutedChange, isNearby, isActive, videoUrl, priority = false}: RecipeMediaCarouselProps) {
     const containerRef = useRef<HTMLDivElement>(null)
     const [activeIndex, setActiveIndex] = useState(0)
-    const mediaCount = images.length + (videoUrl ? 1 : 0)
+    const [isVideoAvailable, setIsVideoAvailable] = useState(Boolean(videoUrl))
+    const hasVideo = Boolean(videoUrl) && isVideoAvailable
+    const mediaCount = images.length + (hasVideo ? 1 : 0)
 
     function handleScroll() {
         const container = containerRef.current
@@ -40,7 +42,7 @@ export default function RecipeMediaCarousel({name, images, isMuted, onMutedChang
                  onScroll={handleScroll}
                  className="no-scrollbar flex h-full w-full snap-x snap-mandatory flex-row overflow-x-auto overscroll-x-contain"
             >
-                {videoUrl && (
+                {hasVideo && videoUrl && (
                     <div className="relative h-full w-full shrink-0 snap-start">
                         <div className="absolute inset-0 flex items-center justify-center">
                             <div className="h-[70%] w-full">
@@ -51,6 +53,10 @@ export default function RecipeMediaCarousel({name, images, isMuted, onMutedChang
                                              isActive={isActive}
                                              isNearby={isNearby}
                                              autoPlay
+                                             onError={() => {
+                                                 setIsVideoAvailable(false)
+                                                 setActiveIndex(0)
+                                             }}
                                 />
                             </div>
                         </div>
@@ -69,7 +75,7 @@ export default function RecipeMediaCarousel({name, images, isMuted, onMutedChang
                                     className="object-contain"
                                     priority={
                                         priority &&
-                                        !videoUrl &&
+                                        !hasVideo &&
                                         index === 0
                                     }
                                 />
