@@ -1,8 +1,11 @@
 "use client";
 
-import {useState} from "react";
+import {useEffect, useMemo, useState} from "react";
 import Link from "next/link";
 import {Clock, Ruler, CakeSlice, ChefHat } from "lucide-react";
+import {useQuery} from "convex/react";
+import {api} from "@gotujto/convex/_generated/api";
+import {stores, type StoresT} from "@gotujto/shared/data/stableData";
 import {Card, CardContent} from "@/components/ui/card";
 import {Progress} from "@/components/ui/progress";
 import {ToggleGroup, ToggleGroupItem} from "@/components/ui/toggle-group";
@@ -23,9 +26,49 @@ type RecipeDetailsProps = {
     result: RecipeResultsType;
 };
 
+const STORES_STORAGE_KEY = "gotujto:selected-stores";
+
+function readSelectedStores(): StoresT[] {
+    try {
+        const saved = sessionStorage.getItem(STORES_STORAGE_KEY);
+
+        if (saved === null) return [...stores];
+
+        const parsed = JSON.parse(saved);
+        return Array.isArray(parsed)
+            ? parsed.filter((store): store is StoresT => stores.includes(store))
+            : [...stores];
+    } catch {
+        return [...stores];
+    }
+}
+
 export function RecipeDetails({result}: RecipeDetailsProps) {
     const [unitSystem, setUnitSystem] =
         useState<UnitSystem>("customary");
+    const [selectedStores, setSelectedStores] = useState<StoresT[] | null>(null);
+
+    useEffect(() => {
+        setSelectedStores(readSelectedStores());
+    }, []);
+
+    const deals = useQuery(
+        api.deals.getDealsByStore,
+        selectedStores && selectedStores.length > 0
+            ? {stores: selectedStores}
+            : "skip",
+    );
+    const dealStoresByProductId = useMemo(() => {
+        const storesByProductId = new Map<string, string[]>();
+
+        for (const deal of deals ?? []) {
+            const currentStores = storesByProductId.get(deal.productId) ?? [];
+            if (!currentStores.includes(deal.store)) currentStores.push(deal.store);
+            storesByProductId.set(deal.productId, currentStores);
+        }
+
+        return storesByProductId;
+    }, [deals]);
 
     if (!result) {
         return <div>Nie znaleziono przepisu.</div>;
@@ -195,6 +238,7 @@ export function RecipeDetails({result}: RecipeDetailsProps) {
                         <CardContent className="p-0">
                             <RecipeProducts
                                 ingredientGroups={ingredientGroups}
+                                dealStoresByProductId={dealStoresByProductId}
                                 unitSystem={unitSystem}
                             />
                         </CardContent>

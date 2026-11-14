@@ -1,5 +1,6 @@
 import Link from "next/link";
 import {ArrowRight, BadgePercent, BookOpenCheck, ChefHat, ClipboardCheck, CookingPot, PackagePlus, ScrollText} from "lucide-react";
+import {NewsletterTestButton} from "@/components/web/admin/NewsletterTestButton";
 
 const primaryActions = [
     {href: "/admin/recipe-submissions", title: "Zgłoszenia przepisów", description: "Sprawdź przepisy przesłane przez klientów i zdecyduj o publikacji.", icon: ClipboardCheck, accent: "bg-lime-400 text-black"},
@@ -50,6 +51,12 @@ export default function AdminPage() {
                     </Link>;
                 })}
             </div>
+        </section>
+
+        <section className="mt-10 max-w-xl rounded-2xl border bg-card p-5 shadow-sm">
+            <h2 className="text-lg font-semibold">Newsletter</h2>
+            <p className="mt-2 text-sm leading-6 text-muted-foreground">Wysyła bieżącą propozycję z promocji wyłącznie na skonfigurowany adres testowy. Wymagana jest aktywna zgoda na newsletter.</p>
+            <NewsletterTestButton />
         </section>
     </main>;
 }

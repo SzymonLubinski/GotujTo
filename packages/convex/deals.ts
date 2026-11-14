@@ -44,6 +44,7 @@ export const deleteExpired = internalMutation({
 export const getDealsByStore = query({
     args: {stores: v.array(v.union(...stores.map((store) => v.literal(store))))},
     handler: async (ctx, args) => {
+        const now = Date.now();
         const selectedStores = args.stores.length > 0
             ? [...new Set(args.stores)]
             : [...stores]
@@ -57,6 +58,6 @@ export const getDealsByStore = query({
                         .collect()
                 )
             )
-        ).flat()
+        ).flat().filter(deal => deal.startsAt <= now && deal.endsAt >= now)
     }
 })

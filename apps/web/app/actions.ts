@@ -113,6 +113,24 @@ export async function addDealsAction(value: DealsFormValues) {
     }
 }
 
+export async function sendTestNewsletterAction() {
+    await requireAdminRequest();
+
+    try {
+        const result = await fetchAction(api.notifications.sendTestNewsletter, {
+            adminSecret: getAdminSecret(),
+        });
+
+        if (result.sent === 1) {
+            return {success: true};
+        }
+
+        return {success: false, error: "Brevo nie wyslal wiadomosci testowej."};
+    } catch {
+        return {success: false, error: "Nie udalo sie wyslac newslettera testowego. Sprawdz zgode newslettera dla adresu testowego."};
+    }
+}
+
 export async function createRecipe(value: CreateRecipeValues,) {
     await requireAdminRequest();
 

@@ -44,15 +44,26 @@ export default function RecipeDetailsScreen() {
     }, [productId]);
 
 
-    const deals = useQuery(api.deals.getDealsByStore, {
-        stores: selectedStores,
-    });
+    const deals = useQuery(
+        api.deals.getDealsByStore,
+        selectedStores.length > 0 ? {stores: selectedStores} : "skip",
+    );
+
+    const dealStoresByProductId = useMemo(() => {
+        const storesByProductId = new Map<string, string[]>();
+
+        for (const deal of deals ?? []) {
+            const currentStores = storesByProductId.get(deal.productId) ?? [];
+            if (!currentStores.includes(deal.store)) currentStores.push(deal.store);
+            storesByProductId.set(deal.productId, currentStores);
+        }
+
+        return storesByProductId;
+    }, [deals]);
 
     const dealProductIds = useMemo(() => {
-        return [...new Set(
-            (deals ?? []).map(deal => deal.productId),
-        )];
-    }, [deals]);
+        return [...dealStoresByProductId.keys()] as Id<"products">[];
+    }, [dealStoresByProductId]);
 
     const result = useQuery(
         api.recipes.getRecipeById,
@@ -93,7 +104,7 @@ export default function RecipeDetailsScreen() {
         const ingredient = group.ingredients[0];
 
         return ingredient
-            ? dealProductIds.includes(ingredient.productId)
+            ? dealStoresByProductId.has(ingredient.productId)
             : false;
     }).length;
 
@@ -197,7 +208,7 @@ export default function RecipeDetailsScreen() {
 
                 <View className="mt-5">
                     <RecipeIngredients ingredientGroups={ingredientGroups}
-                                       dealProductIds={new Set(dealProductIds)}
+                                       dealStoresByProductId={dealStoresByProductId}
                                        unitSystem={unitSystem}
                     />
                 </View>

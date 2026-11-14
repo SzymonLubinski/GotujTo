@@ -1,7 +1,8 @@
 import {ConvexError, v} from "convex/values";
-import {internalAction, internalMutation, internalQuery, mutation, query} from "./_generated/server";
+import {action, internalAction, internalMutation, internalQuery, mutation, query} from "./_generated/server";
 import {internal} from "./_generated/api";
 import {authComponent} from "./auth";
+import {requireAdmin} from "./lib/requireAdmin";
 
 async function requireUser(ctx: Parameters<typeof authComponent.getAuthUser>[0]) {
     const user = await authComponent.getAuthUser(ctx);
@@ -253,6 +254,14 @@ export const getNewsletterRecipients = internalQuery({
     handler: async ctx => await ctx.db.query("newsletterRecipients").collect(),
 });
 
+export const getNewsletterRecipientForEmail = internalQuery({
+    args: {email: v.string()},
+    handler: async (ctx, args) => await ctx.db
+        .query("newsletterRecipients")
+        .withIndex("by_email", index => index.eq("email", args.email))
+        .unique(),
+});
+
 function escapeHtml(value: string) {
     return value.replace(/[&<>"']/g, character => ({
         "&": "&amp;",
@@ -264,8 +273,14 @@ function escapeHtml(value: string) {
 }
 
 export const sendPromotionNewsletter = internalAction({
-    args: {},
-    handler: async (ctx): Promise<{sent: number; failed: number}> => {
+    args: {
+        recipients: v.optional(v.array(v.object({
+            email: v.string(),
+            name: v.optional(v.string()),
+            unsubscribeToken: v.string(),
+        }))),
+    },
+    handler: async (ctx, args): Promise<{sent: number; failed: number}> => {
         const apiKey = process.env.BREVO_API_KEY?.trim();
         const from = process.env.BREVO_FROM_EMAIL?.trim();
         const siteUrl = process.env.CONVEX_SITE_URL?.trim();
@@ -275,13 +290,8 @@ export const sendPromotionNewsletter = internalAction({
             return {sent: 0, failed: 0};
         }
 
-        const [highlights, recipients]: [
-            {recipeId: string; name: string}[],
-            {email: string; name?: string; unsubscribeToken: string}[],
-        ] = await Promise.all([
-            ctx.runQuery(internal.notifications.getPromotionHighlights, {}),
-            ctx.runQuery(internal.notifications.getNewsletterRecipients, {}),
-        ]);
+        const highlights = await ctx.runQuery(internal.notifications.getPromotionHighlights, {});
+        const recipients = args.recipients ?? await ctx.runQuery(internal.notifications.getNewsletterRecipients, {});
 
         if (!highlights.length || !recipients.length) return {sent: 0, failed: 0};
 
@@ -313,6 +323,35 @@ export const sendPromotionNewsletter = internalAction({
         const failed = results.length - sent;
         if (failed) console.error("Newsletter: część wiadomości Brevo nie została wysłana.", {failed});
         return {sent, failed};
+    },
+});
+
+const TEST_NEWSLETTER_RECIPIENT = "szymon.lubinski.it@gmail.com";
+
+export const sendTestNewsletter = action({
+    args: {adminSecret: v.string()},
+    handler: async (ctx, args): Promise<{sent: number; failed: number}> => {
+        requireAdmin(args.adminSecret);
+        const recipient = await ctx.runQuery(internal.notifications.getNewsletterRecipientForEmail, {
+            email: TEST_NEWSLETTER_RECIPIENT,
+        });
+
+        if (!recipient) {
+            throw new ConvexError({
+                code: "NEWSLETTER_NOT_ENABLED",
+                message: "Adres testowy nie ma aktywnej zgody na newsletter.",
+            });
+        }
+
+        const result = await ctx.runAction(internal.notifications.sendPromotionNewsletter, {
+            recipients: [{
+                email: recipient.email,
+                ...(recipient.name ? {name: recipient.name} : {}),
+                unsubscribeToken: recipient.unsubscribeToken,
+            }],
+        });
+
+        return result;
     },
 });
 

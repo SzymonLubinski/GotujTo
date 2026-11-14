@@ -15,11 +15,11 @@ type RecipeIngredient =
 
 type RecipeIngredientsProps = {
     ingredientGroups: RecipeResult["ingredientGroups"];
-    dealProductIds: ReadonlySet<string>;
+    dealStoresByProductId: ReadonlyMap<string, readonly string[]>;
     unitSystem: UnitSystem;
 };
 
-export default function RecipeIngredients({ingredientGroups, dealProductIds, unitSystem}: RecipeIngredientsProps) {
+export default function RecipeIngredients({ingredientGroups, dealStoresByProductId, unitSystem}: RecipeIngredientsProps) {
     const [selectedIngredientIds, setSelectedIngredientIds] =
         useState<Record<number, string>>({});
 
@@ -66,9 +66,8 @@ export default function RecipeIngredients({ingredientGroups, dealProductIds, uni
                     unitSystem,
                 );
 
-                const onDeal = dealProductIds.has(
-                    selectedIngredient.productId,
-                );
+                const dealStores = dealStoresByProductId.get(selectedIngredient.productId) ?? [];
+                const onDeal = dealStores.length > 0;
 
                 const hasAlternatives =
                     ingredientGroup.ingredients.length > 1;
@@ -131,7 +130,7 @@ export default function RecipeIngredients({ingredientGroups, dealProductIds, uni
 
                                 {onDeal && (
                                     <IngredientBadge
-                                        label="Promocja"
+                                        label={`Promocja: ${dealStores.join(", ")}`}
                                         icon="deal"
                                     />
                                 )}

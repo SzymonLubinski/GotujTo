@@ -15,10 +15,11 @@ type Ingredient =
 
 type RecipeProductsProps = {
     ingredientGroups: RecipeResult["ingredientGroups"];
+    dealStoresByProductId: ReadonlyMap<string, readonly string[]>;
     unitSystem: "metric" | "customary";
 };
 
-export default function RecipeProducts({ingredientGroups, unitSystem}: RecipeProductsProps) {
+export default function RecipeProducts({ingredientGroups, dealStoresByProductId, unitSystem}: RecipeProductsProps) {
     const [selectedIndexes, setSelectedIndexes] =
         useState<Record<number, number>>({});
 
@@ -76,6 +77,8 @@ export default function RecipeProducts({ingredientGroups, unitSystem}: RecipePro
 
                 const quantity =
                     getIngredientQuantity(ingredient);
+                const dealStores = dealStoresByProductId.get(ingredient.productId) ?? [];
+                const inDeal = dealStores.length > 0;
                 const hasSubstitutes =
                     group.ingredients.length > 1;
 
@@ -86,14 +89,14 @@ export default function RecipeProducts({ingredientGroups, unitSystem}: RecipePro
                                 className={
                                     ingredient.inFridge
                                         ? "flex size-8 shrink-0 items-center justify-center rounded-full bg-green-100 text-green-700 dark:bg-green-950 dark:text-green-400"
-                                        : ingredient.inDeal
+                                        : inDeal
                                             ? "flex size-8 shrink-0 items-center justify-center rounded-full bg-orange-100 text-orange-700 dark:bg-orange-950 dark:text-orange-400"
                                             : "flex size-8 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground"
                                 }
                             >
                                     {ingredient.inFridge ? (
                                         <Check className="size-4"/>
-                                    ) : ingredient.inDeal ? (
+                                    ) : inDeal ? (
                                         <Tag className="size-4"/>
                                     ) : (
                                         <ArrowRight className="size-4"/>
@@ -120,9 +123,9 @@ export default function RecipeProducts({ingredientGroups, unitSystem}: RecipePro
                                         </Badge>
                                     )}
 
-                                    {ingredient.inDeal && (
+                                    {inDeal && (
                                         <Badge variant="secondary">
-                                            Promocja
+                                            Promocja: {dealStores.join(", ")}
                                         </Badge>
                                     )}
 
