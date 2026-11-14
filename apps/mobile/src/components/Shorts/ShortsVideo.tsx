@@ -9,9 +9,10 @@ type ShortsVideoProps = {
     uri: string;
     isMuted: boolean;
     onMutedChange: (muted: boolean) => void;
+    onError?: () => void;
 };
 
-export default function ShortsVideo({uri, isMuted, onMutedChange}: ShortsVideoProps) {
+export default function ShortsVideo({uri, isMuted, onMutedChange, onError}: ShortsVideoProps) {
     const pausedByUser = useRef(false);
     const player = useVideoPlayer(uri, player => {
         player.loop = true;
@@ -39,6 +40,7 @@ export default function ShortsVideo({uri, isMuted, onMutedChange}: ShortsVideoPr
     useEventListener(player, "statusChange", ({status, error}) => {
         if (error) {
             console.error("Shorts video error:", error.message);
+            onError?.();
             return;
         }
 

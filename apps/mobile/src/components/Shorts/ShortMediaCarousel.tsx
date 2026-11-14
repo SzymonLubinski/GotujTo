@@ -1,4 +1,4 @@
-import {useMemo, useState} from "react";
+import {useEffect, useMemo, useState} from "react";
 import {FlatList, Text, View} from "react-native";
 import {Image} from "expo-image";
 import {ShortItemData} from "@gotujto/shared/types/result-type";
@@ -22,10 +22,16 @@ type ShortMedia = {
 
 export default function ShortMediaCarousel({recipe, width, height, isActive, isMuted, onMutedChange}: ShortMediaCarouselProps) {
     const [activeMediaIndex, setActiveMediaIndex] = useState(0);
+    const [isVideoAvailable, setIsVideoAvailable] = useState(true);
+
+    useEffect(() => {
+        setIsVideoAvailable(true);
+        setActiveMediaIndex(0);
+    }, [recipe._id, recipe.videoKey]);
 
     const media = useMemo<ShortMedia[]>(
         () => [
-            ...(recipe.videoKey
+            ...(recipe.videoKey && isVideoAvailable
                 ? [{
                     type: "video" as const,
                     uri: recipe.videoKey,
@@ -36,7 +42,7 @@ export default function ShortMediaCarousel({recipe, width, height, isActive, isM
                 uri: image,
             })),
         ],
-        [recipe.images, recipe.videoKey],
+        [isVideoAvailable, recipe.images, recipe.videoKey],
     );
 
     if (media.length === 0) {
@@ -90,6 +96,7 @@ export default function ShortMediaCarousel({recipe, width, height, isActive, isM
                                 <ShortsVideo uri={item.uri}
                                              isMuted={isMuted}
                                              onMutedChange={onMutedChange}
+                                             onError={() => setIsVideoAvailable(false)}
                                 />
                             ) : (
                                 <VideoLoadingPlaceholder />

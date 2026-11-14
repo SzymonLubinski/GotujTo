@@ -36,7 +36,9 @@ export default function SearchScreen() {
 
         return [
             {title: "Przepisy", recipes: results.recipesByName},
-            ...groupByCategory(results.categories.recipesByDiets, recipe => recipe.diets, debouncedQuery),
+            ...(isVegeAndVeganQuery(debouncedQuery)
+                ? [{title: "Vege i wegan", recipes: results.categories.recipesByDiets}]
+                : groupByCategory(results.categories.recipesByDiets, recipe => recipe.diets, debouncedQuery)),
             ...groupByCategory(results.categories.recipesByOccasions, recipe => recipe.occasions, debouncedQuery),
             ...groupByCategory(results.categories.recipesByMealTypes, recipe => recipe.types, debouncedQuery),
         ].filter(section => section.recipes.length > 0);
@@ -74,7 +76,12 @@ export default function SearchScreen() {
 
             <ScrollView contentContainerStyle={{padding: 20, paddingBottom: 44}} keyboardShouldPersistTaps="handled">
                 {!normalizedQuery ? (
-                    <Text className="pt-8 text-center text-sm text-white/55">Wpisz nazwe przepisu, skladnika, diety lub okazji.</Text>
+                    <View className="items-center pt-8">
+                        <Text className="text-center text-sm text-white/55">Wpisz nazwe przepisu, skladnika, diety lub okazji.</Text>
+                        <Pressable onPress={() => setQuery("wege")} className="mt-5 rounded-full border border-lime-400/25 bg-lime-400/10 px-4 py-2 active:bg-lime-400/20">
+                            <Text className="font-semibold text-lime-300">Vege i wegan</Text>
+                        </Pressable>
+                    </View>
                 ) : results === undefined ? (
                     <View className="pt-12"><ActivityIndicator color="#a3e635" /></View>
                 ) : sections.length === 0 ? (
@@ -128,6 +135,12 @@ function groupByCategory(
         title: formatCategory(title),
         recipes: groupedRecipes,
     }));
+}
+
+function isVegeAndVeganQuery(query: string) {
+    return ["wege", "wegetarianski", "wegetarianska", "wegetarianskie"].includes(
+        query.normalize("NFD").replace(/\p{Diacritic}/gu, "").toLowerCase(),
+    );
 }
 
 function formatCategory(value: string) {

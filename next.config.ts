@@ -5,6 +5,10 @@ const nextConfig: NextConfig = {
     cacheComponents: true,
     devIndicators: false,
     images: {
+        // The short feed is capped at 448 px wide. Supplying a 480 px variant
+        // prevents Next from selecting the default 640 px source for a 448 px
+        // image on standard-density mobile screens.
+        deviceSizes: [360, 414, 480, 640, 750, 828, 1080, 1200, 1920, 2048, 3840],
         remotePatterns: [
             {
                 hostname: "images.unsplash.com",

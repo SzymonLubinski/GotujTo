@@ -2,6 +2,7 @@ import React, { createContext, useCallback, useContext, useEffect, useRef, useSt
 import { View, Text, Pressable } from "react-native";
 import Animated from "react-native-reanimated";
 import { Portal } from "@rn-primitives/portal";
+import {CheckCircle2, CircleAlert, Info, X} from "lucide-react-native";
 import { entering, exiting } from "./animate";
 import { cn } from "@/lib/utils";
 
@@ -91,28 +92,34 @@ export function ToastProvider({ children, defaultPosition = "top", defaultFrom }
 }
 
 const variantStyles: Record<ToastVariant, string> = {
-  default: "bg-card border-border",
-  destructive: "bg-destructive border-destructive",
-  success: "bg-green-600 border-green-600",
+  default: "border-white/15 bg-zinc-900",
+  destructive: "border-red-400/30 bg-red-950",
+  success: "border-emerald-400/30 bg-emerald-950",
 };
 
 function ToastItem({ data, onDismiss }: { data: ToastData; onDismiss: () => void }) {
   const variant = data.variant ?? "default";
-  const isDefault = variant === "default";
   const { enter, exit } = animationFor[data.from ?? "top"];
+  const decoration = variant === "success"
+    ? {icon: <CheckCircle2 size={20} color="#86efac" />, title: "text-emerald-50", description: "text-emerald-100/70"}
+    : variant === "destructive"
+      ? {icon: <CircleAlert size={20} color="#fca5a5" />, title: "text-red-50", description: "text-red-100/70"}
+      : {icon: <Info size={20} color="#bef264" />, title: "text-white", description: "text-white/60"};
 
   return (
     <Animated.View entering={enter} exiting={exit}>
       <Pressable
-        className={cn("rounded-lg border p-4 shadow-lg", variantStyles[variant])}
+        className={cn("flex-row items-start gap-3 rounded-2xl border px-4 py-3.5 shadow-2xl", variantStyles[variant])}
         onPress={onDismiss}
         accessible={true}
         accessibilityRole="alert"
       >
-        <Text className={cn("text-sm font-semibold", isDefault ? "text-foreground" : "text-white")}>{data.title}</Text>
-        {data.description && (
-          <Text className={cn("text-xs mt-1", isDefault ? "text-muted-foreground" : "text-white/80")}>{data.description}</Text>
-        )}
+        <View className="mt-0.5">{decoration.icon}</View>
+        <View className="flex-1">
+          <Text className={cn("text-sm font-semibold", decoration.title)}>{data.title}</Text>
+          {data.description && <Text className={cn("mt-1 text-xs leading-5", decoration.description)}>{data.description}</Text>}
+        </View>
+        <X size={17} color="rgba(255,255,255,0.45)" />
       </Pressable>
     </Animated.View>
   );

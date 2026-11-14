@@ -83,6 +83,32 @@ export default defineSchema({
         acceptedAt: v.number(),
     }).index("by_userId", ["userId"]),
 
+    notificationPreferences: defineTable({
+        userId: v.string(),
+        emailNewsletterEnabled: v.boolean(),
+        pushEnabled: v.boolean(),
+        updatedAt: v.number(),
+    }).index("by_userId", ["userId"]),
+
+    newsletterRecipients: defineTable({
+        userId: v.string(),
+        email: v.string(),
+        name: v.optional(v.string()),
+        unsubscribeToken: v.string(),
+        updatedAt: v.number(),
+    })
+        .index("by_userId", ["userId"])
+        .index("by_unsubscribeToken", ["unsubscribeToken"]),
+
+    pushSubscriptions: defineTable({
+        userId: v.string(),
+        token: v.string(),
+        platform: v.union(v.literal("android"), v.literal("ios")),
+        updatedAt: v.number(),
+    })
+        .index("by_user_token", ["userId", "token"])
+        .index("by_userId", ["userId"]),
+
     favoriteRecipes: defineTable({
         userId: v.string(),
         recipeId: v.id("recipes"),

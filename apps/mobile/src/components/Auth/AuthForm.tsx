@@ -1,11 +1,16 @@
-import {type ComponentProps, type ReactNode, useEffect, useState} from "react";
-import {ActivityIndicator, Pressable, ScrollView, TextInput, View} from "react-native";
+import {type ComponentProps, type ReactNode, useEffect, useRef, useState} from "react";
+import {ActivityIndicator, Linking, Platform, Pressable, ScrollView, TextInput, View} from "react-native";
 import {useRouter} from "expo-router";
 import {Globe2, LockKeyhole, Mail, UserRound} from "lucide-react-native";
 import {useSafeAreaInsets} from "react-native-safe-area-context";
+import {useConvexAuth} from "convex/react";
 
 import {authClient} from "@/lib/auth-client";
 import {Text} from "@/components/ui/text";
+import {getPublicSiteUrl} from "@/lib/siteUrl";
+import {AuthDiagnosticsPanel} from "@/components/Auth/AuthDiagnosticsPanel";
+import {recordAuthDiagnostic} from "@/lib/authDiagnostics";
+import {getNativeGoogleIdToken} from "@/lib/nativeGoogleSignIn";
 
 type AuthMode = "login" | "register";
 
@@ -40,10 +45,25 @@ function hasErrorCode(error: unknown, code: string) {
         && error.code === code;
 }
 
+function getCookieState(cookie: string) {
+    const cookieNames = cookie
+        .split(";")
+        .map(part => part.trim().split("=", 1)[0] ?? "")
+        .filter(Boolean);
+
+    return {
+        hasCookie: cookieNames.length > 0,
+        hasSessionToken: cookieNames.some(name => name.endsWith("session_token")),
+        hasSessionData: cookieNames.some(name => name.endsWith("session_data")),
+        hasOAuthState: cookieNames.some(name => name.endsWith("oauth_state")),
+    };
+}
+
 export default function AuthForm({mode}: AuthFormProps) {
     const router = useRouter();
     const insets = useSafeAreaInsets();
     const {data: session, isPending: isSessionPending} = authClient.useSession();
+    const {isAuthenticated, isLoading: isConvexAuthLoading} = useConvexAuth();
     const isRegistering = mode === "register";
     const [name, setName] = useState("");
     const [email, setEmail] = useState("");
@@ -52,6 +72,25 @@ export default function AuthForm({mode}: AuthFormProps) {
     const [error, setError] = useState<string | null>(null);
     const [notice, setNotice] = useState<string | null>(null);
     const [needsVerification, setNeedsVerification] = useState(false);
+    const [hasAcceptedTerms, setHasAcceptedTerms] = useState(false);
+    const [termsError, setTermsError] = useState<string | null>(null);
+    const siteUrl = getPublicSiteUrl();
+    const lastReportedAuthState = useRef<string | null>(null);
+
+    useEffect(() => {
+        const details = {
+            betterAuthLoading: isSessionPending,
+            hasBetterAuthSession: Boolean(session),
+            convexLoading: isConvexAuthLoading,
+            convexAuthenticated: isAuthenticated,
+        };
+        const snapshot = JSON.stringify(details);
+
+        if (lastReportedAuthState.current === snapshot) return;
+
+        lastReportedAuthState.current = snapshot;
+        void recordAuthDiagnostic("Zmiana stanu klienta auth", details);
+    }, [isAuthenticated, isConvexAuthLoading, isSessionPending, session]);
 
     useEffect(() => {
         if (!isSessionPending && session) {
@@ -67,10 +106,17 @@ export default function AuthForm({mode}: AuthFormProps) {
             return;
         }
 
+        if (isRegistering && !hasAcceptedTerms) {
+            setTermsError("Aby utworzyc konto, zaakceptuj Regulamin i Polityke prywatnosci.");
+            return;
+        }
+
         setError(null);
         setNotice(null);
         setNeedsVerification(false);
+        setTermsError(null);
         setIsPending(true);
+        void recordAuthDiagnostic("Rozpoczeto logowanie e-mailem");
 
         try {
             if (isRegistering) {
@@ -78,7 +124,7 @@ export default function AuthForm({mode}: AuthFormProps) {
                     email: normalizedEmail,
                     name: name.trim(),
                     password,
-                    callbackURL: "mobile://profile",
+                    callbackURL: "/accept-terms?next=/profile",
                 });
 
                 if (result.error) {
@@ -125,7 +171,7 @@ export default function AuthForm({mode}: AuthFormProps) {
         try {
             const result = await authClient.sendVerificationEmail({
                 email: normalizedEmail,
-                callbackURL: "mobile://profile",
+                callbackURL: "/profile",
             });
 
             if (result.error) {
@@ -144,25 +190,77 @@ export default function AuthForm({mode}: AuthFormProps) {
     async function handleGoogleSignIn() {
         setError(null);
         setNotice(null);
+
+        if (isRegistering && !hasAcceptedTerms) {
+            setTermsError("Aby utworzyc konto, zaakceptuj Regulamin i Polityke prywatnosci.");
+            return;
+        }
+
+        setTermsError(null);
         setIsPending(true);
 
         try {
-            const result = await authClient.signIn.social({
-                provider: "google",
-                callbackURL: "mobile://profile",
-            });
+            const cookieBeforeSignIn = await authClient.getCookie();
+
+            await recordAuthDiagnostic("Przed logowaniem Google", getCookieState(cookieBeforeSignIn));
+
+            const callbackURL = "/accept-terms?next=/profile";
+            const result = Platform.OS === "web"
+                ? await authClient.signIn.social({
+                    provider: "google",
+                    callbackURL,
+                })
+                : await (async () => {
+                    const idToken = await getNativeGoogleIdToken();
+
+                    if (!idToken) {
+                        await recordAuthDiagnostic("Uzytkownik anulowal natywne logowanie Google");
+                        return null;
+                    }
+
+                    await recordAuthDiagnostic("Google zwrocilo natywny token tozsamosci");
+
+                    return authClient.signIn.social({
+                        provider: "google",
+                        idToken: {token: idToken},
+                        callbackURL,
+                    });
+                })();
+
+            if (!result) return;
 
             if (result.error) {
+                void recordAuthDiagnostic("Google zwrocil blad", getSafeErrorDetails(result.error));
                 setError(getErrorMessage(result.error));
                 return;
             }
 
+            const cookieAfterCallback = await authClient.getCookie();
+            const sessionResult = await authClient.getSession();
+
+            await recordAuthDiagnostic("Google wrocilo do aplikacji bez bledu");
+            await recordAuthDiagnostic("Cookie po callbacku Google", getCookieState(cookieAfterCallback));
+            await recordAuthDiagnostic("Odczyt sesji po callbacku Google", {
+                hasSession: Boolean(sessionResult.data?.session),
+                hasError: Boolean(sessionResult.error),
+                ...getSafeErrorDetails(sessionResult.error),
+            });
             router.replace("/(tabs)/profile" as never);
         } catch (caughtError) {
+            void recordAuthDiagnostic("Google rzucil wyjatek", getSafeErrorDetails(caughtError));
             setError(getErrorMessage(caughtError));
         } finally {
             setIsPending(false);
         }
+    }
+
+    async function openLegalPage(path: "/regulamin" | "/polityka-prywatnosci") {
+        if (!siteUrl) {
+            setTermsError("Brakuje adresu strony z Regulaminem i Polityką prywatności.");
+            return;
+        }
+
+        await Linking.openURL(`${siteUrl}${path}`);
     }
 
     return (
@@ -214,7 +312,27 @@ export default function AuthForm({mode}: AuthFormProps) {
                     {isRegistering && <Text className="-mt-2 text-xs text-white/45">Co najmniej 8 znaków.</Text>}
                 </View>
 
+                {isRegistering && (
+                    <Pressable
+                        accessibilityRole="checkbox"
+                        accessibilityState={{checked: hasAcceptedTerms}}
+                        onPress={() => {
+                            setHasAcceptedTerms(current => !current);
+                            setTermsError(null);
+                        }}
+                        className="mt-6 flex-row items-start gap-3"
+                    >
+                        <View className={`mt-0.5 size-5 items-center justify-center rounded border ${hasAcceptedTerms ? "border-lime-400 bg-lime-400" : "border-white/40"}`}>
+                            {hasAcceptedTerms && <Text className="text-xs font-black text-black">✓</Text>}
+                        </View>
+                        <Text className="flex-1 text-sm leading-5 text-white/70">
+                            Akceptuję <Text onPress={() => void openLegalPage("/regulamin")} className="font-semibold text-lime-300">Regulamin</Text> oraz <Text onPress={() => void openLegalPage("/polityka-prywatnosci")} className="font-semibold text-lime-300">Politykę prywatności</Text>.
+                        </Text>
+                    </Pressable>
+                )}
+
                 {error && <Message variant="error">{error}</Message>}
+                {termsError && <Message variant="error">{termsError}</Message>}
                 {notice && <Message variant="notice">{notice}</Message>}
 
                 <Pressable
@@ -270,9 +388,27 @@ export default function AuthForm({mode}: AuthFormProps) {
                         <Text className="text-sm font-semibold text-lime-300">{isRegistering ? "Zaloguj się" : "Załóż konto"}</Text>
                     </Pressable>
                 </View>
+                <AuthDiagnosticsPanel
+                    betterAuth={isSessionPending ? "loading" : session ? "session" : "no-session"}
+                    convex={isConvexAuthLoading ? "loading" : isAuthenticated ? "authenticated" : "not-authenticated"}
+                />
             </View>
         </ScrollView>
     );
+}
+
+function getSafeErrorDetails(error: unknown): Record<string, string | number | boolean> {
+    if (error === null || error === undefined) return {};
+
+    if (typeof error !== "object" || error === null) return {kind: "unknown"};
+
+    const details = error as {code?: unknown; status?: unknown};
+    const safeDetails: Record<string, string | number | boolean> = {};
+
+    if (typeof details.code === "string") safeDetails.code = details.code;
+    if (typeof details.status === "number") safeDetails.status = details.status;
+
+    return safeDetails;
 }
 
 function AuthInput({

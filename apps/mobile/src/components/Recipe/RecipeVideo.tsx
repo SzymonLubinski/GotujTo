@@ -8,9 +8,10 @@ import VideoLoadingPlaceholder from "@/components/Shorts/VideoLoadingPlaceholder
 
 type RecipeVideoProps = {
     uri: string;
+    onError?: () => void;
 };
 
-export default function RecipeVideo({uri}: RecipeVideoProps) {
+export default function RecipeVideo({uri, onError}: RecipeVideoProps) {
     const [isMuted, setIsMuted] = useState(true);
     const player = useVideoPlayer(uri, player => {
         player.loop = true;
@@ -43,6 +44,7 @@ export default function RecipeVideo({uri}: RecipeVideoProps) {
         ({status, error}) => {
             if (error) {
                 console.error("Recipe video error:", error.message);
+                onError?.();
                 return;
             }
 

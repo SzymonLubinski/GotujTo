@@ -1,11 +1,16 @@
 import type {RefObject} from "react";
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import {ArrowRight, BookOpenText, UserRound} from "lucide-react";
 import type {FunctionReturnType} from "convex/server";
 
 import type {api} from "@gotujto/convex/_generated/api";
-import {BlogShortActions} from "@/components/web/blog/BlogShortActions";
 import RecipeMediaCarousel from "@/components/web/short/RecipeMediaCarousel";
+
+const BlogShortActions = dynamic(
+    () => import("@/components/web/blog/BlogShortActions").then(module => module.BlogShortActions),
+    {ssr: false},
+);
 
 type BlogShort = FunctionReturnType<
     typeof api.blog.getBlogShortsPaginated
@@ -57,12 +62,14 @@ export default function BlogShortItem({blog, index, isActive, isNearby, isMuted,
                 </div>
             </div>
 
-            <BlogShortActions
-                blogId={blog._id}
-                blogTitle={blog.title}
-                favoriteCount={blog.favoriteCount}
-                commentCount={blog.commentCount}
-            />
+            {isNearby && (
+                <BlogShortActions
+                    blogId={blog._id}
+                    blogTitle={blog.title}
+                    favoriteCount={blog.favoriteCount}
+                    commentCount={blog.commentCount}
+                />
+            )}
         </article>
     );
 }

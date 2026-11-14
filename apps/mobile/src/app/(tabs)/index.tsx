@@ -54,8 +54,8 @@ function getRequiredBlogCount(recipeCount: number, seed: string) {
 }
 
 export default function Index() {
-    const {selectedStores, setSelectedStores} = useSelectedStores();
-    const [feedSession] = useState<FeedSession>(() => ({
+    const {selectedStores, setSelectedStores, isReady: areStoresReady} = useSelectedStores();
+    const [feedSession, setFeedSession] = useState<FeedSession>(() => ({
         randomSeed: `${Date.now()}-${Math.random()}`,
         createdBefore: Date.now(),
     }));
@@ -68,6 +68,7 @@ export default function Index() {
                 stores: selectedStores,
                 limit: 30,
                 asOf: feedSession.createdBefore,
+                randomSeed: feedSession.randomSeed,
             }
             : "skip",
     );
@@ -214,7 +215,15 @@ export default function Index() {
         loadMoreRecipes(RECIPES_PAGE_SIZE);
     }, [blockedByBlog, loadMoreRecipes, standardStatus]);
 
-    if (!priorityRecipesReady) {
+    const handleSelectedStoresChange = useCallback((nextStores: typeof selectedStores) => {
+        setSelectedStores(nextStores);
+        setFeedSession({
+            randomSeed: `${Date.now()}-${Math.random()}`,
+            createdBefore: Date.now(),
+        });
+    }, [setSelectedStores]);
+
+    if (!areStoresReady || !priorityRecipesReady) {
         return (
             <View className="flex-1 bg-black">
                 <HomeHeader
@@ -222,7 +231,7 @@ export default function Index() {
                         selectedStores
                     }
                     onSelectedStoresChange={
-                        setSelectedStores
+                        handleSelectedStoresChange
                     }
                 />
 
@@ -240,9 +249,7 @@ export default function Index() {
         <View className="flex-1">
             <HomeHeader
                 selectedStores={selectedStores}
-                onSelectedStoresChange={
-                    setSelectedStores
-                }
+                onSelectedStoresChange={handleSelectedStoresChange}
             />
 
             <RecipeShorts

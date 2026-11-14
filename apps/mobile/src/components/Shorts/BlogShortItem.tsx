@@ -1,4 +1,4 @@
-import {useMemo, useState} from "react";
+import {useEffect, useMemo, useState} from "react";
 import {FlatList, Pressable, View} from "react-native";
 import {Image} from "expo-image";
 import {BookOpen, Lightbulb, Smile, UserRound} from "lucide-react-native";
@@ -27,11 +27,17 @@ type BlogMedia = {
 export default function BlogShortItem({item, width, height, isActive, isMuted, onMutedChange}: BlogShortItemProps) {
     const router = useRouter();
     const [activeMediaIndex, setActiveMediaIndex] = useState(0);
+    const [isVideoAvailable, setIsVideoAvailable] = useState(true);
     const blog = item.data;
+
+    useEffect(() => {
+        setIsVideoAvailable(true);
+        setActiveMediaIndex(0);
+    }, [blog._id, blog.videoUrl]);
 
     const media = useMemo<BlogMedia[]>(
         () => [
-            ...(blog.videoUrl
+            ...(blog.videoUrl && isVideoAvailable
                 ? [{type: "video" as const, uri: blog.videoUrl}]
                 : []),
             ...blog.images.map(uri => ({
@@ -39,7 +45,7 @@ export default function BlogShortItem({item, width, height, isActive, isMuted, o
                 uri,
             })),
         ],
-        [blog.images, blog.videoUrl],
+        [blog.images, blog.videoUrl, isVideoAvailable],
     );
 
     const label = blog.type === "tip"
@@ -88,6 +94,7 @@ export default function BlogShortItem({item, width, height, isActive, isMuted, o
                                         uri={mediaItem.uri}
                                         isMuted={isMuted}
                                         onMutedChange={onMutedChange}
+                                        onError={() => setIsVideoAvailable(false)}
                                     />
                                 ) : (
                                     <View className="h-full w-full bg-neutral-950" />

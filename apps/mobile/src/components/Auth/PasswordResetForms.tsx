@@ -87,7 +87,7 @@ export function ForgotPasswordForm() {
         try {
             const result = await authClient.requestPasswordReset({
                 email: normalizedEmail,
-                redirectTo: "mobile://reset-password",
+            redirectTo: "/reset-password",
             });
 
             if (result.error) {

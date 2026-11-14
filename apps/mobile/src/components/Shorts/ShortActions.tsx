@@ -3,11 +3,13 @@ import {ActivityIndicator, Modal, Pressable, ScrollView, Share, View} from "reac
 import {Heart, MessageCircle, Share2, X} from "lucide-react-native";
 import {useMutation, useQuery, useConvexAuth} from "convex/react";
 import {useRouter} from "expo-router";
+import {useSafeAreaInsets} from "react-native-safe-area-context";
 
 import {api} from "@gotujto/convex/_generated/api";
 import type {Id} from "@gotujto/convex/_generated/dataModel";
 import CommentsSection from "@/components/Comments/CommentsSection";
 import {Text} from "@/components/ui/text";
+import {getPublicSiteUrl} from "@/lib/siteUrl";
 
 type ShortActionsProps =
     | {target: "recipe"; contentId: Id<"recipes">; title: string; favoriteCount: number; commentCount: number}
@@ -19,6 +21,7 @@ function formatCount(count: number) {
 
 export default function ShortActions(props: ShortActionsProps) {
     const router = useRouter();
+    const insets = useSafeAreaInsets();
     const {isAuthenticated, isLoading} = useConvexAuth();
     const [isCommentsOpen, setIsCommentsOpen] = useState(false);
     const [isFavoritePending, setIsFavoritePending] = useState(false);
@@ -30,9 +33,23 @@ export default function ShortActions(props: ShortActionsProps) {
         api.userDashboard.getBlogFavoriteState,
         props.target === "blog" && isAuthenticated ? {blogId: props.contentId} : "skip",
     );
+    const recipeEngagement = useQuery(
+        api.userDashboard.getRecipeEngagement,
+        props.target === "recipe" ? {recipeId: props.contentId} : "skip",
+    );
+    const blogEngagement = useQuery(
+        api.userDashboard.getBlogEngagement,
+        props.target === "blog" ? {blogId: props.contentId} : "skip",
+    );
     const toggleRecipeFavorite = useMutation(api.userDashboard.toggleFavoriteRecipe);
     const toggleBlogFavorite = useMutation(api.userDashboard.toggleFavoriteBlog);
     const isFavorite = props.target === "recipe" ? recipeFavorite === true : blogFavorite === true;
+    const favoriteCount = props.target === "recipe"
+        ? recipeEngagement?.favoriteCount ?? props.favoriteCount
+        : blogEngagement?.favoriteCount ?? props.favoriteCount;
+    const commentCount = props.target === "recipe"
+        ? recipeEngagement?.commentCount ?? props.commentCount
+        : blogEngagement?.commentCount ?? props.commentCount;
     const contentPath = useMemo(
         () => props.target === "recipe" ? `/recipe/${props.contentId}` : `/blog/${props.contentId}`,
         [props.contentId, props.target],
@@ -57,7 +74,7 @@ export default function ShortActions(props: ShortActionsProps) {
     }
 
     async function handleShare() {
-        const siteUrl = process.env.EXPO_PUBLIC_SITE_URL?.replace(/\/$/, "");
+        const siteUrl = getPublicSiteUrl();
         const url = siteUrl ? `${siteUrl}${contentPath}` : undefined;
 
         await Share.share({
@@ -72,7 +89,7 @@ export default function ShortActions(props: ShortActionsProps) {
             <View pointerEvents="box-none" className="absolute right-3 top-1/2 z-30 -translate-y-1/2 items-center gap-4">
                 <ActionWithCount
                     label={isFavorite ? "Usuń z ulubionych" : "Dodaj do ulubionych"}
-                    count={props.favoriteCount}
+                    count={favoriteCount}
                     disabled={isLoading || isFavoritePending}
                     onPress={() => void handleFavorite()}
                 >
@@ -80,7 +97,7 @@ export default function ShortActions(props: ShortActionsProps) {
                         <Heart size={27} color={isFavorite ? "#a3e635" : "#ffffff"} fill={isFavorite ? "#a3e635" : "transparent"} strokeWidth={2.6} />
                     )}
                 </ActionWithCount>
-                <ActionWithCount label="Otwórz komentarze" count={props.commentCount} onPress={() => setIsCommentsOpen(true)}>
+                <ActionWithCount label="Otwórz komentarze" count={commentCount} onPress={() => setIsCommentsOpen(true)}>
                     <MessageCircle size={27} color="#ffffff" strokeWidth={2.6} />
                 </ActionWithCount>
                 <Pressable accessibilityRole="button" accessibilityLabel="Udostępnij" hitSlop={10} onPress={() => void handleShare()} className="items-center py-1 active:opacity-60">
@@ -89,7 +106,7 @@ export default function ShortActions(props: ShortActionsProps) {
             </View>
 
             <Modal visible={isCommentsOpen} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setIsCommentsOpen(false)}>
-                <View className="flex-1 bg-black">
+                <View className="flex-1 bg-black" style={{paddingTop: Math.max(insets.top, 16)}}>
                     <View className="flex-row items-center justify-between border-b border-white/10 px-5 py-4">
                         <Text className="text-lg font-bold text-white">Komentarze</Text>
                         <Pressable accessibilityRole="button" accessibilityLabel="Zamknij komentarze" hitSlop={10} onPress={() => setIsCommentsOpen(false)} className="rounded-full p-2 active:bg-white/10">

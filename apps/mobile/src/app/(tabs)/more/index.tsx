@@ -4,12 +4,13 @@ import FontAwesome6 from "@expo/vector-icons/FontAwesome6";
 import {ChevronRight, ExternalLink, FileText, Info, Mail, Settings, ShieldCheck} from "lucide-react-native";
 import {Text} from "@/components/ui/text";
 import {useBottomTabBarHeight} from "expo-router/js-tabs";
+import {getPublicSiteUrl} from "@/lib/siteUrl";
 
-const siteUrl = process.env.EXPO_PUBLIC_SITE_URL?.replace(/\/$/, "");
+const siteUrl = getPublicSiteUrl();
 const LINKS = {
     privacyPolicy: siteUrl ? `${siteUrl}/polityka-prywatnosci` : undefined,
     terms: siteUrl ? `${siteUrl}/regulamin` : undefined,
-    email: "mailto:lubinski.szymon.99@gmail.com",
+    email: "mailto:szymon.lubinski.it@gmail.com",
     instagram: process.env.EXPO_PUBLIC_INSTAGRAM_URL,
     facebook: process.env.EXPO_PUBLIC_FACEBOOK_URL,
 };
@@ -74,10 +75,7 @@ export default function MoreScreen() {
                     </Text>
 
                     <Text className="mt-2 text-sm leading-6 text-white/60">
-                        GotujTo pomaga odkrywać przepisy,
-                        wykorzystywać produkty znajdujące się
-                        w lodówce oraz znajdować kulinarne
-                        inspiracje dopasowane do Ciebie.
+                        Kulinarne inspiracje dopasowane do promocji i Twojej lodówki.
                     </Text>
                 </View>
 

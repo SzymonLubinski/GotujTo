@@ -1,8 +1,8 @@
 import {type ReactNode, useEffect, useState} from "react";
-import {ActivityIndicator, Image, Pressable, ScrollView, TextInput, View} from "react-native";
+import {ActivityIndicator, Image, Pressable, ScrollView, Switch, TextInput, View} from "react-native";
 import {useRouter} from "expo-router";
 import {useConvexAuth, useMutation, useQuery} from "convex/react";
-import {AlertTriangle, BookOpenText, ChefHat, Heart, LockKeyhole, LogIn, LogOut, Mail, Plus, Refrigerator, Settings2, Trash2, UserPlus, UserRound} from "lucide-react-native";
+import {AlertTriangle, Bell, BookOpenText, ChefHat, Heart, LockKeyhole, LogIn, LogOut, Mail, Plus, Refrigerator, Settings2, Trash2, UserPlus, UserRound} from "lucide-react-native";
 
 import {api} from "@gotujto/convex/_generated/api";
 import {type Doc} from "@gotujto/convex/_generated/dataModel";
@@ -12,16 +12,18 @@ import {useToast} from "@/components/ui/toast";
 import {RecipeSubmissionForm} from "@/components/Submission/RecipeSubmissionForm";
 import {BlogSubmissionForm} from "@/components/Submission/BlogSubmissionForm";
 import {ProfileAvatarForm} from "@/components/Profile/ProfileAvatarForm";
+import {recordAuthDiagnostic} from "@/lib/authDiagnostics";
+import {requestExpoPushToken} from "@/lib/pushNotifications";
 
 type ProfileTab = "settings" | "favorites" | "fridge" | "recipes" | "blog";
 type Submission = Doc<"recipeSubmissions"> | Doc<"blogSubmissions">;
 
 const tabs: {id: ProfileTab; label: string; icon: typeof Settings2}[] = [
-    {id: "settings", label: "Ustawienia", icon: Settings2},
     {id: "favorites", label: "Ulubione", icon: Heart},
     {id: "fridge", label: "Lodówka", icon: Refrigerator},
     {id: "recipes", label: "Przepisy", icon: ChefHat},
     {id: "blog", label: "Posty", icon: BookOpenText},
+    {id: "settings", label: "Ustawienia", icon: Settings2},
 ];
 
 function getErrorMessage(error: unknown, fallback: string) {
@@ -38,7 +40,7 @@ export function ProfileDashboard() {
     const {toast} = useToast();
     const {data: session, isPending: isSessionPending} = authClient.useSession();
     const {isAuthenticated, isLoading: isAuthLoading} = useConvexAuth();
-    const [activeTab, setActiveTab] = useState<ProfileTab>("settings");
+    const [activeTab, setActiveTab] = useState<ProfileTab>("favorites");
     const syncPublicProfile = useMutation(api.userDashboard.syncPublicProfile);
     const favoriteRecipes = useQuery(api.userDashboard.getFavoriteRecipes, isAuthenticated ? {} : "skip");
     const fridgeProducts = useQuery(api.userDashboard.getFridgeProducts, isAuthenticated ? {} : "skip");
@@ -48,6 +50,15 @@ export function ProfileDashboard() {
     useEffect(() => {
         if (isAuthenticated) void syncPublicProfile().catch(() => undefined);
     }, [isAuthenticated, syncPublicProfile]);
+
+    useEffect(() => {
+        if (isSessionPending || isAuthLoading) return;
+
+        void recordAuthDiagnostic("Stan po powrocie do profilu", {
+            betterAuthSession: Boolean(session),
+            convexAuthenticated: isAuthenticated,
+        });
+    }, [isAuthenticated, isAuthLoading, isSessionPending, session]);
 
     async function handleSignOut() {
         try {
@@ -63,7 +74,10 @@ export function ProfileDashboard() {
     }
 
     if (isSessionPending || (session && isAuthLoading)) return <ProfileLoading />;
-    if (!session || !isAuthenticated) return <SignedOutProfile />;
+    if (!session || !isAuthenticated) return <SignedOutProfile
+        betterAuth={isSessionPending ? "loading" : session ? "session" : "no-session"}
+        convex={isAuthLoading ? "loading" : isAuthenticated ? "authenticated" : "not-authenticated"}
+    />;
 
     let content: ReactNode;
     if (activeTab === "favorites") content = <FavoritesTab recipes={favoriteRecipes} />;
@@ -75,7 +89,7 @@ export function ProfileDashboard() {
     return (
         <ScrollView className="flex-1 bg-black" contentContainerStyle={{paddingBottom: 120}} keyboardShouldPersistTaps="always">
             <View className="px-5 pt-10">
-                <ProfileHeader name={session.user.name ?? ""} email={session.user.email} image={session.user.image} />
+                <ProfileHeader name={session.user.name ?? ""} image={session.user.image} />
                 <ScrollView className="-mx-5 mt-7 border-y border-white/10" horizontal showsHorizontalScrollIndicator={false}>
                     <View className="flex-row gap-2 px-5 py-3">
                     {tabs.map(tab => {
@@ -98,13 +112,13 @@ function ProfileLoading() {
     return <View className="flex-1 items-center justify-center bg-black"><ActivityIndicator color="#a3e635" /></View>;
 }
 
-function SignedOutProfile() {
+function SignedOutProfile({betterAuth, convex}: {betterAuth: "loading" | "session" | "no-session"; convex: "loading" | "authenticated" | "not-authenticated"}) {
     const router = useRouter();
     return <View className="flex-1 items-center justify-center bg-black px-6"><View className="size-16 items-center justify-center rounded-full bg-lime-400/15"><UserRound size={30} color="#a3e635" /></View><Text className="mt-5 text-2xl font-bold text-white">Twój profil</Text><Text className="mt-2 max-w-xs text-center text-sm leading-6 text-white/60">Zaloguj się, aby zapisywać ulubione przepisy, przechowywać lodówkę i publikować własne treści.</Text><View className="mt-8 w-full max-w-xs gap-3"><Pressable onPress={() => router.push("/login" as never)} className="flex-row items-center justify-center gap-2 rounded-full bg-lime-400 px-5 py-3 active:bg-lime-300"><LogIn size={18} color="#111827" /><Text className="font-semibold text-neutral-950">Zaloguj się</Text></Pressable><Pressable onPress={() => router.push("/register" as never)} className="flex-row items-center justify-center gap-2 rounded-full border border-white/15 px-5 py-3 active:bg-white/10"><UserPlus size={18} color="#fff" /><Text className="font-semibold text-white">Załóż konto</Text></Pressable></View></View>;
 }
 
-function ProfileHeader({name, email, image}: {name: string; email: string; image?: string | null}) {
-    return <View className="flex-row items-start gap-4"><View className="size-16 overflow-hidden rounded-full border border-lime-300/30 bg-lime-400/10">{image ? <Image accessibilityLabel="Twój avatar" className="size-full" source={{uri: image}} /> : <View className="flex-1 items-center justify-center"><UserRound size={30} color="#a3e635" /></View>}</View><View className="flex-1"><Text className="text-sm font-medium text-lime-300">Twój profil</Text><Text className="mt-1 text-2xl font-bold text-white">Witaj{name ? `, ${name}` : ""}</Text><Text className="mt-1 text-sm text-white/55">{email}</Text></View></View>;
+function ProfileHeader({name, image}: {name: string; image?: string | null}) {
+    return <View className="flex-row items-start gap-4"><View className="size-16 overflow-hidden rounded-full border border-lime-300/30 bg-lime-400/10">{image ? <Image accessibilityLabel="Twój avatar" className="size-full" source={{uri: image}} /> : <View className="flex-1 items-center justify-center"><UserRound size={30} color="#a3e635" /></View>}</View><View className="flex-1"><Text className="text-sm font-medium text-lime-300">Twój profil</Text><Text className="mt-1 text-2xl font-bold text-white">Witaj{name ? `, ${name}` : ""}</Text></View></View>;
 }
 
 function SettingsTab({email, image, onSignOut}: {email: string; image?: string | null; onSignOut: () => void}) {
@@ -112,6 +126,9 @@ function SettingsTab({email, image, onSignOut}: {email: string; image?: string |
     const {toast} = useToast();
     const requestEmailChange = useMutation(api.userDashboard.requestEmailChange);
     const prepareAccountDeletion = useMutation(api.userDashboard.prepareAccountDeletion);
+    const notificationPreferences = useQuery(api.notifications.getPreferences, {});
+    const updateNotificationPreferences = useMutation(api.notifications.updatePreferences);
+    const registerPushToken = useMutation(api.notifications.registerPushToken);
     const [providerIds, setProviderIds] = useState<string[] | null>(null);
     const [newEmail, setNewEmail] = useState("");
     const [currentPassword, setCurrentPassword] = useState("");
@@ -121,12 +138,17 @@ function SettingsTab({email, image, onSignOut}: {email: string; image?: string |
     const [deleteApprovedRecipes, setDeleteApprovedRecipes] = useState(false);
     const [showDeletion, setShowDeletion] = useState(false);
     const [isPending, setIsPending] = useState(false);
+    const [isNotificationPending, setIsNotificationPending] = useState(false);
 
     useEffect(() => {
         let isMounted = true;
         void authClient.listAccounts()
             .then(result => {
-                if (isMounted) setProviderIds(result.data?.map(account => account.providerId) ?? []);
+                const accounts = "data" in result && Array.isArray(result.data)
+                    ? result.data
+                    : [];
+
+                if (isMounted) setProviderIds(accounts.map(account => account.providerId));
             })
             .catch(() => {
                 if (isMounted) setProviderIds([]);
@@ -137,6 +159,31 @@ function SettingsTab({email, image, onSignOut}: {email: string; image?: string |
     }, []);
 
     const hasCredentialAccount = providerIds?.includes("credential") ?? false;
+    const emailNewsletterEnabled = notificationPreferences?.emailNewsletterEnabled ?? false;
+    const pushEnabled = notificationPreferences?.pushEnabled ?? false;
+
+    async function updateNotificationSetting(setting: "newsletter" | "push", enabled: boolean) {
+        setIsNotificationPending(true);
+        try {
+            let nextPushEnabled = pushEnabled;
+            if (setting === "push") {
+                nextPushEnabled = enabled;
+                if (enabled) {
+                    const registration = await requestExpoPushToken();
+                    await registerPushToken(registration);
+                }
+            }
+            await updateNotificationPreferences({
+                emailNewsletterEnabled: setting === "newsletter" ? enabled : emailNewsletterEnabled,
+                pushEnabled: nextPushEnabled,
+            });
+            toast({title: enabled ? "Ustawienie powiadomień zapisane." : "Powiadomienia zostały wyłączone.", variant: "success"});
+        } catch (error) {
+            toast({title: getErrorMessage(error, "Nie udało się zmienić ustawień powiadomień."), variant: "destructive"});
+        } finally {
+            setIsNotificationPending(false);
+        }
+    }
 
     async function handleEmailChange() {
         const value = newEmail.trim();
@@ -146,7 +193,7 @@ function SettingsTab({email, image, onSignOut}: {email: string; image?: string |
         }
         setIsPending(true);
         try {
-            await requestEmailChange({newEmail: value, callbackURL: "mobile://profile"});
+            await requestEmailChange({newEmail: value, callbackURL: "/profile"});
             setNewEmail("");
             toast({title: "Wyslalismy link potwierdzajacy na nowy adres e-mail."});
         } catch (error) {
@@ -191,7 +238,7 @@ function SettingsTab({email, image, onSignOut}: {email: string; image?: string |
         try {
             await prepareAccountDeletion({deleteApprovedRecipes});
             const result = await authClient.deleteUser({
-                callbackURL: "mobile://",
+                callbackURL: "/",
                 ...(hasCredentialAccount ? {password: deletePassword} : {}),
             });
             if (result.error) {
@@ -211,6 +258,22 @@ function SettingsTab({email, image, onSignOut}: {email: string; image?: string |
     return <View className="gap-4">
         <ProfileCard icon={<UserRound size={21} color="#a3e635" />} title="Twoje konto" description={email} />
         <ProfileAvatarForm image={image} />
+        <SettingsCard icon={<Bell size={20} color="#a3e635" />} title="Powiadomienia" description="Samodzielnie wybierasz kanały i możesz je wyłączyć w każdej chwili.">
+            <NotificationOption
+                label="Newsletter z promocjami"
+                description="Zgoda na e-mail z propozycjami przepisów opartymi na aktualnych promocjach."
+                value={emailNewsletterEnabled}
+                disabled={isNotificationPending || notificationPreferences === undefined}
+                onValueChange={value => void updateNotificationSetting("newsletter", value)}
+            />
+            <NotificationOption
+                label="Powiadomienia push"
+                description="Promocje, polubienia, komentarze i decyzje administratora."
+                value={pushEnabled}
+                disabled={isNotificationPending || notificationPreferences === undefined}
+                onValueChange={value => void updateNotificationSetting("push", value)}
+            />
+        </SettingsCard>
         {hasCredentialAccount ? <>
             <SettingsCard icon={<Mail size={20} color="#a3e635" />} title="Zmien adres e-mail" description="Potwierdzisz zmiane linkiem wyslanym na nowy adres.">
                 <SettingsInput label="Nowy adres e-mail" value={newEmail} onChangeText={setNewEmail} autoCapitalize="none" autoComplete="email" keyboardType="email-address" />
@@ -234,6 +297,10 @@ function SettingsTab({email, image, onSignOut}: {email: string; image?: string |
         </SettingsCard>}
         <Pressable onPress={() => void onSignOut()} className="mt-3 flex-row items-center justify-center gap-2 rounded-full border border-red-400/30 bg-red-950/20 py-3 active:bg-red-950/40"><LogOut size={18} color="#fecaca" /><Text className="font-semibold text-red-100">Wyloguj sie</Text></Pressable>
     </View>;
+}
+
+function NotificationOption({label, description, value, disabled, onValueChange}: {label: string; description: string; value: boolean; disabled: boolean; onValueChange: (value: boolean) => void}) {
+    return <View className="flex-row items-start gap-4 rounded-xl border border-white/10 bg-black/20 p-4"><View className="flex-1"><Text className="text-base font-semibold text-white">{label}</Text><Text className="mt-1 text-sm leading-5 text-white/60">{description}</Text></View><Switch accessibilityLabel={label} value={value} disabled={disabled} onValueChange={onValueChange} trackColor={{false: "#3f3f46", true: "#84cc16"}} thumbColor="#ffffff" /></View>;
 }
 
 function SettingsCard({icon, title, description, children}: {icon: ReactNode; title: string; description: string; children: ReactNode}) {

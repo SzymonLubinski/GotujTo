@@ -8,9 +8,11 @@ import {type Doc} from "@gotujto/convex/_generated/dataModel";
 import {Text} from "@/components/ui/text";
 import {navigateAfterBlur} from "@/lib/navigation";
 import {useToast} from "@/components/ui/toast";
+import {useSafeAreaInsets} from "react-native-safe-area-context";
 
 export default function FridgeScreen() {
     const router = useRouter();
+    const insets = useSafeAreaInsets();
     const [phrase, setPhrase] = useState("");
     const [selectedProducts, setSelectedProducts] = useState<Doc<"products">[]>([]);
     const [suggestionsOpen, setSuggestionsOpen] = useState(false);
@@ -126,7 +128,7 @@ export default function FridgeScreen() {
                         showsVerticalScrollIndicator={false}
                         onScrollBeginDrag={() => Keyboard.dismiss()}
             >
-                <View className="px-5">
+                <View className="px-5" style={{paddingTop: Math.max(insets.top, 16)}}>
                     <View className="h-16 flex-row items-center border-b border-white/10">
                         <Pressable accessibilityRole="button"
                                    accessibilityLabel="Wróć"

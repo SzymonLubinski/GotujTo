@@ -1,11 +1,16 @@
 import type { RefObject } from "react"
+import dynamic from "next/dynamic"
 import RecipeMediaCarousel from "./RecipeMediaCarousel"
 import FridgeContent from "@/components/web/short/FridgeContent"
 import DealContent from "@/components/web/short/DealContent"
 import {ShortItemData} from "@gotujto/shared/types/result-type";
 import ShortItemFooter from "@/components/web/short/ShortItemFooter";
 import StandardContent from "@/components/web/short/StandardContent";
-import {RecipeShortActions} from "@/components/web/short/RecipeShortActions";
+
+const RecipeShortActions = dynamic(
+    () => import("@/components/web/short/RecipeShortActions").then(module => module.RecipeShortActions),
+    {ssr: false},
+)
 
 
 type ShortItemProps = {
@@ -72,12 +77,14 @@ export default function ShortItem({ item, index, isActive, isNearby, isMuted, is
                 </StandardContent>
             )}
 
-            <RecipeShortActions
-                recipeId={recipe._id}
-                recipeName={recipe.name}
-                favoriteCount={recipe.favoriteCount ?? 0}
-                commentCount={recipe.commentCount ?? 0}
-            />
+            {isNearby && (
+                <RecipeShortActions
+                    recipeId={recipe._id}
+                    recipeName={recipe.name}
+                    favoriteCount={recipe.favoriteCount ?? 0}
+                    commentCount={recipe.commentCount ?? 0}
+                />
+            )}
         </article>
     )
 }

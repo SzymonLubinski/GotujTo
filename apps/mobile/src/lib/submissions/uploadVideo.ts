@@ -1,4 +1,5 @@
 import {authClient} from "@/lib/auth-client";
+import {getPublicSiteUrl} from "@/lib/siteUrl";
 import {File} from "expo-file-system";
 import {fetch as expoFetch} from "expo/fetch";
 import {Platform} from "react-native";
@@ -55,7 +56,7 @@ export async function uploadSubmissionVideo(
         throw new Error("Film może mieć maksymalnie 200 MB.");
     }
 
-    const siteUrl = process.env.EXPO_PUBLIC_SITE_URL?.replace(/\/$/, "");
+    const siteUrl = getPublicSiteUrl();
 
     if (!siteUrl) {
         throw new Error("Brakuje EXPO_PUBLIC_SITE_URL do przesyłania filmów.");

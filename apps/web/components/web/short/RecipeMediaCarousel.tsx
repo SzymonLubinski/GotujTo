@@ -73,7 +73,7 @@ export default function RecipeMediaCarousel({name, images, isMuted, onMutedChang
                                     fill
                                     sizes="(max-width: 768px) 100vw, 448px"
                                     className="object-contain"
-                                    priority={
+                                    preload={
                                         priority &&
                                         !hasVideo &&
                                         index === 0

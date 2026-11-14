@@ -1,6 +1,6 @@
 import {useState} from "react";
-import {ActivityIndicator, Alert, Pressable, TextInput, View} from "react-native";
-import {Flag, MessageCircle, Send, Trash2} from "lucide-react-native";
+import {ActivityIndicator, Pressable, TextInput, View} from "react-native";
+import {AlertTriangle, Flag, MessageCircle, Send, Trash2} from "lucide-react-native";
 import {useMutation, useQuery, useConvexAuth} from "convex/react";
 import {useRouter} from "expo-router";
 
@@ -9,6 +9,7 @@ import {api} from "@gotujto/convex/_generated/api";
 import {Avatar} from "@/components/ui/avatar";
 import {Text} from "@/components/ui/text";
 import {useToast} from "@/components/ui/toast";
+import {Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle} from "@/components/ui/dialog";
 
 type CommentsSectionProps =
     | {
@@ -48,6 +49,8 @@ export default function CommentsSection({target, contentId}: CommentsSectionProp
     const {isAuthenticated, isLoading} = useConvexAuth();
     const [content, setContent] = useState("");
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [commentToDelete, setCommentToDelete] = useState<string | null>(null);
+    const [isDeleting, setIsDeleting] = useState(false);
     const recipeComments = useQuery(
         api.userDashboard.getRecipeComments,
         target === "recipe" ? {recipeId: contentId} : "skip",
@@ -99,30 +102,7 @@ export default function CommentsSection({target, contentId}: CommentsSectionProp
         }
 
         if (isOwn) {
-            Alert.alert(
-                "Usunąć komentarz?",
-                "Tej operacji nie można cofnąć.",
-                [
-                    {text: "Anuluj", style: "cancel"},
-                    {
-                        text: "Usuń",
-                        style: "destructive",
-                        onPress: () => {
-                            void (async () => {
-                                try {
-                                    if (target === "recipe") {
-                                        await deleteOwnRecipeComment({commentId: commentId as Id<"comments">});
-                                    } else {
-                                        await deleteOwnBlogComment({commentId: commentId as Id<"blogComments">});
-                                    }
-                                } catch (error) {
-                                    toast({title: getErrorMessage(error), variant: "destructive"});
-                                }
-                            })();
-                        },
-                    },
-                ],
-            );
+            setCommentToDelete(commentId);
             return;
         }
 
@@ -140,6 +120,29 @@ export default function CommentsSection({target, contentId}: CommentsSectionProp
                 toast({title: getErrorMessage(error), variant: "destructive"});
             }
         })();
+    }
+
+    async function confirmDeleteComment() {
+        if (!commentToDelete) return;
+
+        setIsDeleting(true);
+        try {
+            if (target === "recipe") {
+                await deleteOwnRecipeComment({commentId: commentToDelete as Id<"comments">});
+            } else {
+                await deleteOwnBlogComment({commentId: commentToDelete as Id<"blogComments">});
+            }
+            setCommentToDelete(null);
+            toast({
+                title: "Komentarz usunięty",
+                description: "Komentarz nie jest już widoczny dla innych osób.",
+                variant: "success",
+            });
+        } catch (error) {
+            toast({title: getErrorMessage(error), variant: "destructive"});
+        } finally {
+            setIsDeleting(false);
+        }
     }
 
     return (
@@ -224,6 +227,25 @@ export default function CommentsSection({target, contentId}: CommentsSectionProp
                     </Pressable>
                 </View>
             </View>
+            <Dialog open={Boolean(commentToDelete)} onOpenChange={open => !isDeleting && !open && setCommentToDelete(null)}>
+                <DialogContent className="w-[86%] rounded-3xl border border-red-400/20 bg-zinc-950 p-6">
+                    <DialogHeader className="items-center pb-2">
+                        <View className="size-12 items-center justify-center rounded-full bg-red-500/15">
+                            <AlertTriangle size={23} color="#fca5a5" />
+                        </View>
+                        <DialogTitle className="mt-4 text-center text-xl text-white">Usunąć komentarz?</DialogTitle>
+                        <DialogDescription className="mt-2 text-center leading-5 text-white/60">Tej operacji nie można cofnąć.</DialogDescription>
+                    </DialogHeader>
+                    <DialogFooter className="mt-3 flex-row gap-3 pt-0">
+                        <Pressable disabled={isDeleting} onPress={() => setCommentToDelete(null)} className="h-12 flex-1 items-center justify-center rounded-full border border-white/15 active:bg-white/10 disabled:opacity-50">
+                            <Text className="font-semibold text-white">Anuluj</Text>
+                        </Pressable>
+                        <Pressable disabled={isDeleting} onPress={() => void confirmDeleteComment()} className="h-12 flex-1 items-center justify-center rounded-full bg-red-500 active:bg-red-400 disabled:opacity-50">
+                            {isDeleting ? <ActivityIndicator color="#ffffff" /> : <Text className="font-semibold text-white">Usuń</Text>}
+                        </Pressable>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </View>
     );
 }

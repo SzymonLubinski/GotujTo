@@ -20,6 +20,7 @@ type IngredientDraft = {
     metricUnit: typeof metricUnits[number];
     customaryQuantity: string;
     customaryUnit: typeof customaryUnits[number];
+    substitutes: IngredientDraft[];
 };
 
 function parseQuantity(value: string) {
@@ -62,7 +63,10 @@ export function RecipeSubmissionForm({onComplete}: {onComplete: () => void}) {
     const invalidServings = !servings.trim() || !Number.isInteger(portions) || portions < 1 || portions > 100;
     const showServingsError = invalidServings && (hasSubmitted || servings.trim().length > 0);
     const productResults = useQuery(api.products.searchProducts, productPhrase.trim().length >= 2 ? {phrase: productPhrase.trim()} : "skip");
-    const suggestions = useMemo(() => productResults?.filter(product => !ingredients.some(ingredient => ingredient.product._id === product._id)), [ingredients, productResults]);
+    const suggestions = useMemo(() => {
+        const selectedProductIds = new Set(ingredients.flatMap(ingredient => [ingredient.product._id, ...ingredient.substitutes.map(substitute => substitute.product._id)]));
+        return productResults?.filter(product => !selectedProductIds.has(product._id)) ?? [];
+    }, [ingredients, productResults]);
 
     function addIngredient(product: Doc<"products">) {
         Keyboard.dismiss();
@@ -73,6 +77,7 @@ export function RecipeSubmissionForm({onComplete}: {onComplete: () => void}) {
             metricUnit: "g",
             customaryQuantity: "1",
             customaryUnit: "szt",
+            substitutes: [],
         }]);
         setProductPhrase("");
     }
@@ -109,7 +114,7 @@ export function RecipeSubmissionForm({onComplete}: {onComplete: () => void}) {
             toast({title: "Dodaj co najmniej jeden składnik.", variant: "destructive"});
             return;
         }
-        const invalidIngredient = ingredients.find(item =>
+        const invalidIngredient = ingredients.flatMap(item => [item, ...item.substitutes]).find(item =>
             !Number.isFinite(parseQuantity(item.metricQuantity)) || parseQuantity(item.metricQuantity) <= 0
             || !Number.isFinite(parseQuantity(item.customaryQuantity)) || parseQuantity(item.customaryQuantity) <= 0,
         );
@@ -157,7 +162,14 @@ export function RecipeSubmissionForm({onComplete}: {onComplete: () => void}) {
                             customaryQuantity: parseQuantity(item.customaryQuantity),
                             optional: false,
                         },
-                        substitutes: [],
+                        substitutes: item.substitutes.map(substitute => ({
+                            productId: substitute.product._id,
+                            metricUnit: substitute.metricUnit,
+                            customaryUnit: substitute.customaryUnit,
+                            metricQuantity: parseQuantity(substitute.metricQuantity),
+                            customaryQuantity: parseQuantity(substitute.customaryQuantity),
+                            optional: false,
+                        })),
                     })),
                     recipeSteps: recipeSteps.map(step => ({description: step})),
                 },
@@ -178,8 +190,50 @@ export function RecipeSubmissionForm({onComplete}: {onComplete: () => void}) {
     return <ScrollView className="flex-1 bg-black" contentContainerStyle={{paddingBottom: 120}} keyboardShouldPersistTaps="always"><View className="px-5 pt-8"><View className="size-12 items-center justify-center rounded-2xl bg-lime-400/15"><ChefHat size={23} color="#a3e635" /></View><Text className="mt-5 text-2xl font-bold text-white">Dodaj przepis</Text><Text className="mt-2 text-sm leading-6 text-white/60">Uzupełnij pełne miary, składniki i kroki. Przepis zostanie sprawdzony przed publikacją.</Text><View className="mt-7 gap-6"><FormField label="Nazwa przepisu"><TextInput value={name} onChangeText={setName} maxLength={120} className="h-12 rounded-xl border border-white/15 bg-white/5 px-4 text-base text-white" placeholder="Np. Makaron z warzywami" placeholderTextColor="rgba(255,255,255,0.4)" /></FormField><View className="flex-row gap-3"><View className="flex-1"><FormField label="Czas (min)"><TextInput value={cookingMinutes} onChangeText={setCookingMinutes} keyboardType="number-pad" className="h-12 rounded-xl border border-white/15 bg-white/5 px-4 text-base text-white" /></FormField></View><View className="flex-1"><FormField label="Porcje"><TextInput value={servings} onChangeText={value => {setServings(value); setSubmissionError(null);}} keyboardType="number-pad" className="h-12 rounded-xl border border-white/15 bg-white/5 px-4 text-base text-white" />{showServingsError && <Text accessibilityRole="alert" className="mt-1 text-xs leading-4 text-red-300">Liczba porcji musi być liczbą całkowitą od 1 do 100.</Text>}</FormField></View></View><FormField label="Opis"><TextInput value={description} onChangeText={setDescription} multiline textAlignVertical="top" maxLength={2_000} className="min-h-28 rounded-xl border border-white/15 bg-white/5 px-4 py-3 text-base text-white" placeholder="Krótko opisz danie…" placeholderTextColor="rgba(255,255,255,0.4)" /></FormField><SubmissionImagePicker images={images} maxImages={8} onChange={setImages} /><SubmissionVideoPicker video={video} onChange={setVideo} /><IngredientsEditor ingredients={ingredients} phrase={productPhrase} onPhraseChange={setProductPhrase} suggestions={suggestions} onAdd={addIngredient} onUpdate={updateIngredient} onRemove={id => setIngredients(current => current.filter(item => item.id !== id))} /><StepsEditor steps={steps} onChange={setSteps} />{submissionError && <View className="rounded-xl border border-red-400/30 bg-red-950/30 px-4 py-3"><Text className="text-sm leading-5 text-red-100">Nie wysłano przepisu: {submissionError}</Text></View>}<Pressable disabled={isSubmitting} onPress={() => void handleSubmit()} className="h-13 flex-row items-center justify-center gap-2 rounded-full bg-lime-400 active:bg-lime-300 disabled:opacity-50">{isSubmitting ? <ActivityIndicator color="#111827" /> : <Send size={18} color="#111827" />}<Text className="font-bold text-neutral-950">Wyślij do weryfikacji</Text></Pressable></View></View></ScrollView>;
 }
 
-function IngredientsEditor({ingredients, phrase, onPhraseChange, suggestions, onAdd, onUpdate, onRemove}: {ingredients: IngredientDraft[]; phrase: string; onPhraseChange: (value: string) => void; suggestions: Doc<"products">[] | undefined; onAdd: (product: Doc<"products">) => void; onUpdate: (id: string, patch: Partial<IngredientDraft>) => void; onRemove: (id: string) => void}) {
-    return <View><Text className="text-base font-semibold text-white">Składniki</Text><View className="mt-3 h-12 flex-row items-center rounded-xl border border-white/15 bg-white/5 px-3"><Search size={18} color="rgba(255,255,255,0.5)" /><TextInput value={phrase} onChangeText={onPhraseChange} className="ml-3 flex-1 text-base text-white" placeholder="Wyszukaj produkt…" placeholderTextColor="rgba(255,255,255,0.4)" /></View>{phrase.trim().length >= 2 && <View className="mt-2 overflow-hidden rounded-xl border border-white/10 bg-zinc-950">{suggestions === undefined ? <View className="p-4"><ActivityIndicator color="#a3e635" /></View> : suggestions.length ? suggestions.map(product => <Pressable key={product._id} onPress={() => onAdd(product)} className="flex-row items-center justify-between border-b border-white/5 px-4 py-3 last:border-b-0 active:bg-white/5"><Text className="text-white">{product.name}</Text><Plus size={17} color="#a3e635" /></Pressable>) : <Text className="p-4 text-sm text-white/50">Nie znaleziono produktu.</Text>}</View>}{ingredients.length > 0 && <View className="mt-4 gap-4">{ingredients.map(item => <View key={item.id} className="rounded-xl border border-white/10 bg-white/5 p-4"><View className="flex-row items-center justify-between"><Text className="flex-1 text-base font-semibold text-white">{item.product.name}</Text><Pressable onPress={() => onRemove(item.id)} className="size-8 items-center justify-center rounded-full active:bg-white/10"><Trash2 size={16} color="#fca5a5" /></Pressable></View><QuantityInputs label="Metryczne" quantity={item.metricQuantity} unit={item.metricUnit} units={metricUnits} onQuantityChange={metricQuantity => onUpdate(item.id, {metricQuantity})} onUnitChange={metricUnit => onUpdate(item.id, {metricUnit})} /><QuantityInputs label="Domowe" quantity={item.customaryQuantity} unit={item.customaryUnit} units={customaryUnits} onQuantityChange={customaryQuantity => onUpdate(item.id, {customaryQuantity})} onUnitChange={customaryUnit => onUpdate(item.id, {customaryUnit})} /></View>)}</View>}</View>;
+function IngredientsEditor({ingredients, phrase, onPhraseChange, suggestions, onAdd, onUpdate, onRemove}: {ingredients: IngredientDraft[]; phrase: string; onPhraseChange: (value: string) => void; suggestions: Doc<"products">[]; onAdd: (product: Doc<"products">) => void; onUpdate: (id: string, patch: Partial<IngredientDraft>) => void; onRemove: (id: string) => void}) {
+    const [substituteTargetId, setSubstituteTargetId] = useState<string | null>(null);
+    const substituteTarget = ingredients.find(ingredient => ingredient.id === substituteTargetId);
+
+    function addSelectedProduct(product: Doc<"products">) {
+        if (!substituteTarget) {
+            onAdd(product);
+            return;
+        }
+        onUpdate(substituteTarget.id, {
+            substitutes: [...substituteTarget.substitutes, {
+                id: `${substituteTarget.id}-${product._id}-${Date.now()}`,
+                product,
+                metricQuantity: substituteTarget.metricQuantity,
+                metricUnit: substituteTarget.metricUnit,
+                customaryQuantity: substituteTarget.customaryQuantity,
+                customaryUnit: substituteTarget.customaryUnit,
+                substitutes: [],
+            }],
+        });
+        setSubstituteTargetId(null);
+        onPhraseChange("");
+    }
+
+    return <IngredientsList ingredients={ingredients} phrase={phrase} onPhraseChange={onPhraseChange} suggestions={suggestions ?? []} substituteTarget={substituteTarget} onAdd={addSelectedProduct} onUpdate={onUpdate} onRemove={onRemove} onSelectSubstitute={setSubstituteTargetId} onCancelSubstitute={() => { setSubstituteTargetId(null); onPhraseChange(""); }} />;
+
+}
+
+function IngredientsList({ingredients, phrase, onPhraseChange, suggestions, substituteTarget, onAdd, onUpdate, onRemove, onSelectSubstitute, onCancelSubstitute}: {ingredients: IngredientDraft[]; phrase: string; onPhraseChange: (value: string) => void; suggestions: Doc<"products">[]; substituteTarget: IngredientDraft | undefined; onAdd: (product: Doc<"products">) => void; onUpdate: (id: string, patch: Partial<IngredientDraft>) => void; onRemove: (id: string) => void; onSelectSubstitute: (id: string) => void; onCancelSubstitute: () => void}) {
+    return (
+        <View>
+            <View className="flex-row items-center justify-between">
+                <Text className="text-base font-semibold text-white">Składniki</Text>
+                {substituteTarget && <Pressable onPress={onCancelSubstitute} className="rounded-full px-3 py-2 active:bg-white/10"><Text className="text-xs font-semibold text-lime-300">Anuluj zamiennik</Text></Pressable>}
+            </View>
+            {substituteTarget && <Text className="mt-2 text-sm text-lime-200">Wybierz zamiennik dla: {substituteTarget.product.name}</Text>}
+            <View className="mt-3 h-12 flex-row items-center rounded-xl border border-white/15 bg-white/5 px-3">
+                <Search size={18} color="rgba(255,255,255,0.5)" />
+                <TextInput value={phrase} onChangeText={onPhraseChange} className="ml-3 flex-1 text-base text-white" placeholder={substituteTarget ? "Wyszukaj zamiennik." : "Wyszukaj produkt."} placeholderTextColor="rgba(255,255,255,0.4)" />
+            </View>
+            {phrase.trim().length >= 2 && <View className="mt-2 overflow-hidden rounded-xl border border-white/10 bg-zinc-950">{suggestions === undefined ? <View className="p-4"><ActivityIndicator color="#a3e635" /></View> : suggestions.length ? suggestions.map(product => <Pressable key={product._id} onPress={() => onAdd(product)} className="flex-row items-center justify-between border-b border-white/5 px-4 py-3 last:border-b-0 active:bg-white/5"><Text className="text-white">{product.name}</Text><Plus size={17} color="#a3e635" /></Pressable>) : <Text className="p-4 text-sm text-white/50">Nie znaleziono produktu.</Text>}</View>}
+            {ingredients.length > 0 && <View className="mt-4 gap-4">{ingredients.map(item => <View key={item.id} className="rounded-xl border border-white/10 bg-white/5 p-4"><View className="flex-row items-center justify-between"><Text className="flex-1 text-base font-semibold text-white">{item.product.name}</Text><Pressable onPress={() => onRemove(item.id)} className="size-8 items-center justify-center rounded-full active:bg-white/10"><Trash2 size={16} color="#fca5a5" /></Pressable></View><QuantityInputs label="Metryczne" quantity={item.metricQuantity} unit={item.metricUnit} units={metricUnits} onQuantityChange={metricQuantity => onUpdate(item.id, {metricQuantity})} onUnitChange={metricUnit => onUpdate(item.id, {metricUnit})} /><QuantityInputs label="Domowe" quantity={item.customaryQuantity} unit={item.customaryUnit} units={customaryUnits} onQuantityChange={customaryQuantity => onUpdate(item.id, {customaryQuantity})} onUnitChange={customaryUnit => onUpdate(item.id, {customaryUnit})} /><View className="mt-4 border-t border-white/10 pt-4"><View className="flex-row items-center justify-between"><Text className="text-sm font-semibold text-white/80">Zamienniki</Text><Pressable onPress={() => { onSelectSubstitute(item.id); onPhraseChange(""); }} className="flex-row items-center gap-1 rounded-full bg-lime-400/15 px-3 py-2 active:bg-lime-400/25"><Plus size={15} color="#a3e635" /><Text className="text-xs font-semibold text-lime-300">Dodaj</Text></Pressable></View>{item.substitutes.length > 0 && <View className="mt-3 gap-3">{item.substitutes.map(substitute => <View key={substitute.id} className="rounded-xl border border-lime-400/15 bg-black/20 p-3"><View className="flex-row items-center justify-between"><Text className="flex-1 text-sm font-semibold text-lime-100">{substitute.product.name}</Text><Pressable onPress={() => onUpdate(item.id, {substitutes: item.substitutes.filter(current => current.id !== substitute.id)})} className="size-8 items-center justify-center rounded-full active:bg-white/10"><Trash2 size={15} color="#fca5a5" /></Pressable></View><QuantityInputs label="Metryczne" quantity={substitute.metricQuantity} unit={substitute.metricUnit} units={metricUnits} onQuantityChange={metricQuantity => onUpdate(item.id, {substitutes: item.substitutes.map(current => current.id === substitute.id ? {...current, metricQuantity} : current)})} onUnitChange={metricUnit => onUpdate(item.id, {substitutes: item.substitutes.map(current => current.id === substitute.id ? {...current, metricUnit} : current)})} /><QuantityInputs label="Domowe" quantity={substitute.customaryQuantity} unit={substitute.customaryUnit} units={customaryUnits} onQuantityChange={customaryQuantity => onUpdate(item.id, {substitutes: item.substitutes.map(current => current.id === substitute.id ? {...current, customaryQuantity} : current)})} onUnitChange={customaryUnit => onUpdate(item.id, {substitutes: item.substitutes.map(current => current.id === substitute.id ? {...current, customaryUnit} : current)})} /></View>)}</View>}</View></View>)}</View>}
+        </View>
+    );
 }
 
 function QuantityInputs<T extends string>({label, quantity, unit, units, onQuantityChange, onUnitChange}: {label: string; quantity: string; unit: T; units: readonly T[]; onQuantityChange: (value: string) => void; onUnitChange: (unit: T) => void}) {

@@ -1,4 +1,4 @@
-import {useMemo, useState} from "react";
+import {useEffect, useMemo, useState} from "react";
 import {FlatList, Text, View} from "react-native";
 import {Image} from "expo-image";
 import {ChefHat} from "lucide-react-native";
@@ -21,10 +21,16 @@ type RecipeMedia = {
 
 export default function RecipeMediaCarousel({recipe, width, height}: RecipeMediaCarouselProps) {
     const [activeMediaIndex, setActiveMediaIndex] = useState(0);
+    const [isVideoAvailable, setIsVideoAvailable] = useState(true);
+
+    useEffect(() => {
+        setIsVideoAvailable(true);
+        setActiveMediaIndex(0);
+    }, [recipe._id, recipe.videoKey]);
 
     const media = useMemo<RecipeMedia[]>(
         () => [
-            ...(recipe.videoKey
+            ...(recipe.videoKey && isVideoAvailable
                     ? [{
                         type: "video" as const,
                         uri: recipe.videoKey,
@@ -36,7 +42,7 @@ export default function RecipeMediaCarousel({recipe, width, height}: RecipeMedia
                 uri: image,
             })),
         ],
-        [recipe.images, recipe.videoKey],
+        [isVideoAvailable, recipe.images, recipe.videoKey],
     );
 
     if (media.length === 0) {
@@ -84,7 +90,7 @@ export default function RecipeMediaCarousel({recipe, width, height}: RecipeMedia
                     <View style={{width, height}}>
                         {item.type === "video" ? (
                             activeMediaIndex === index ? (
-                                <RecipeVideo uri={item.uri} />
+                                <RecipeVideo uri={item.uri} onError={() => setIsVideoAvailable(false)} />
                             ) : (
                                 <View className="h-full w-full bg-neutral-950" />
                             )

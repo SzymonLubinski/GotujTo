@@ -23,7 +23,7 @@ export default function VideoPlayer({ src, poster, isActive, isNearby, autoPlay,
 
     const active = isActive ?? true
     const muted = isMuted ?? internalMuted
-    const shouldPreload = isNearby ?? active
+    const shouldPreloadMetadata = isNearby ?? active
 
     useEffect(() => {
         const video = videoRef.current
@@ -75,7 +75,10 @@ export default function VideoPlayer({ src, poster, isActive, isNearby, autoPlay,
                    muted={muted}
                    playsInline
                    loop
-                   preload={shouldPreload ? "auto" : "metadata"}
+                   // Only the visible short downloads video data. The next one
+                   // receives metadata, while distant shorts do not compete
+                   // with the first image for bandwidth or main-thread work.
+                   preload={active ? "auto" : shouldPreloadMetadata ? "metadata" : "none"}
                    onCanPlay={() => setCanPlay(true)}
                    onError={onError}
                    onPlay={() => setIsPaused(false)}

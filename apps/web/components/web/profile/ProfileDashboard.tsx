@@ -9,6 +9,7 @@ import {
     ChevronLeft,
     ChevronRight,
     Clock,
+    Bell,
     FileText,
     Heart,
     ImagePlus,
@@ -49,11 +50,11 @@ const allowedAvatarTypes = new Set([
 ]);
 
 const tabs: {id: ProfileTab; label: string; icon: typeof Settings2}[] = [
-    {id: "settings", label: "Ustawienia", icon: Settings2},
     {id: "favorites", label: "Ulubione", icon: Heart},
     {id: "fridge", label: "Lodówka", icon: Refrigerator},
-    {id: "submissions", label: "Dodaj przepis", icon: ChefHat},
-    {id: "blog", label: "Dodaj post", icon: FileText},
+    {id: "submissions", label: "Przepisy", icon: ChefHat},
+    {id: "blog", label: "Posty", icon: FileText},
+    {id: "settings", label: "Ustawienia", icon: Settings2},
 ];
 
 function getErrorMessage(error: unknown) {
@@ -137,7 +138,7 @@ function ProfileSessionContent({email, name, image, onSignOut, signOutError}: {e
 }
 
 function AuthenticatedProfile({email, name, image, onSignOut, signOutError}: {email: string; name: string; image: string | null; onSignOut: () => void; signOutError: string | null}) {
-    const [activeTab, setActiveTab] = useState<ProfileTab>("settings");
+    const [activeTab, setActiveTab] = useState<ProfileTab>("favorites");
     const tabsRef = useRef<HTMLDivElement>(null);
     const [canScrollTabs, setCanScrollTabs] = useState({left: false, right: false});
     const {hasCredentialAccount, isLoading: areAccountsLoading} = useAuthenticationMethods();
@@ -363,7 +364,10 @@ function ProfileAvatarForm({image}: {image: string | null}) {
 
 function SettingsTab({email, image, hasCredentialAccount, isLoadingAuthenticationMethods, onSignOut, signOutError}: {email: string; image: string | null; hasCredentialAccount: boolean; isLoadingAuthenticationMethods: boolean; onSignOut: () => void; signOutError: string | null}) {
     const requestEmailChange = useMutation(api.userDashboard.requestEmailChange);
+    const notificationPreferences = useQuery(api.notifications.getPreferences);
+    const updateNotificationPreferences = useMutation(api.notifications.updatePreferences);
     const [isPending, startTransition] = useTransition();
+    const [isNotificationPending, startNotificationTransition] = useTransition();
     const [notice, setNotice] = useState<string | null>(null);
     const [error, setError] = useState<string | null>(null);
     const [showAccountDeletion, setShowAccountDeletion] = useState(false);
@@ -411,6 +415,21 @@ function SettingsTab({email, image, hasCredentialAccount, isLoadingAuthenticatio
         });
     }
 
+    function handleNotificationPreference(setting: "newsletter" | "push", enabled: boolean) {
+        if (notificationPreferences === undefined) return;
+
+        setNotice(null);
+        setError(null);
+        startNotificationTransition(() => {
+            void updateNotificationPreferences({
+                emailNewsletterEnabled: setting === "newsletter" ? enabled : notificationPreferences?.emailNewsletterEnabled ?? false,
+                pushEnabled: setting === "push" ? enabled : notificationPreferences?.pushEnabled ?? false,
+            })
+                .then(() => setNotice(enabled ? "Ustawienie powiadomień zostało zapisane." : "Powiadomienia zostały wyłączone."))
+                .catch(caughtError => setError(getErrorMessage(caughtError)));
+        });
+    }
+
     return (
         <section className="space-y-5">
             <ProfileAvatarForm image={image} />
@@ -420,6 +439,30 @@ function SettingsTab({email, image, hasCredentialAccount, isLoadingAuthenticatio
                     <CardTitle>Twoje konto</CardTitle>
                     <CardDescription className="text-zinc-400">{email}</CardDescription>
                 </CardHeader>
+            </Card>
+
+            <Card className="border border-white/10 bg-zinc-950/90 text-white">
+                <CardHeader>
+                    <div className="flex size-11 items-center justify-center rounded-full bg-lime-400/15 text-lime-300"><Bell className="size-5" /></div>
+                    <CardTitle>Powiadomienia</CardTitle>
+                    <CardDescription className="text-zinc-400">W każdej chwili możesz zmienić zgodę na newsletter i powiadomienia push.</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                    <NotificationPreference
+                        label="Newsletter z promocjami"
+                        description="E-mail z propozycjami przepisów z aktualnych promocji."
+                        checked={notificationPreferences?.emailNewsletterEnabled ?? false}
+                        disabled={isNotificationPending || notificationPreferences === undefined}
+                        onCheckedChange={checked => handleNotificationPreference("newsletter", checked)}
+                    />
+                    <NotificationPreference
+                        label="Powiadomienia push"
+                        description="Dotyczy urządzeń mobilnych połączonych z tym kontem."
+                        checked={notificationPreferences?.pushEnabled ?? false}
+                        disabled={isNotificationPending || notificationPreferences === undefined}
+                        onCheckedChange={checked => handleNotificationPreference("push", checked)}
+                    />
+                </CardContent>
             </Card>
 
             {isLoadingAuthenticationMethods ? <LoadingCard /> : hasCredentialAccount ? <>
@@ -592,6 +635,10 @@ function SectionHeading({icon: Icon, title, description}: {icon: typeof Settings
 
 function EmptyState({icon: Icon, title, description, action}: {icon: typeof Heart; title: string; description: string; action?: {href: string; label: string}}) {
     return <div className="rounded-2xl border border-dashed border-white/15 bg-zinc-950/70 px-5 py-10 text-center"><Icon className="mx-auto size-6 text-lime-300" /><h3 className="mt-3 font-semibold text-white">{title}</h3><p className="mx-auto mt-2 max-w-xs text-sm leading-6 text-zinc-400">{description}</p>{action && <Button asChild className="mt-5 bg-lime-400 text-black hover:bg-lime-300"><Link href={action.href}>{action.label}</Link></Button>}</div>;
+}
+
+function NotificationPreference({label, description, checked, disabled, onCheckedChange}: {label: string; description: string; checked: boolean; disabled: boolean; onCheckedChange: (checked: boolean) => void}) {
+    return <div className="flex items-start justify-between gap-4 rounded-xl border border-white/10 bg-black/25 p-4"><div><p className="font-medium text-white">{label}</p><p className="mt-1 text-sm leading-5 text-zinc-400">{description}</p></div><button type="button" role="switch" aria-label={label} aria-checked={checked} disabled={disabled} onClick={() => onCheckedChange(!checked)} className={checked ? "relative mt-0.5 h-7 w-12 shrink-0 rounded-full bg-lime-400 transition-colors disabled:opacity-50" : "relative mt-0.5 h-7 w-12 shrink-0 rounded-full bg-zinc-700 transition-colors disabled:opacity-50"}><span className={checked ? "absolute top-1 size-5 rounded-full bg-white transition-transform translate-x-6" : "absolute top-1 size-5 rounded-full bg-white transition-transform translate-x-1"} /></button></div>;
 }
 
 function LoadingCard() {

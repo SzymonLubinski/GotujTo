@@ -60,14 +60,14 @@ export function RecipeShortActions({recipeId, recipeName, favoriteCount, comment
                 <span className="text-sm font-medium text-white/90">{formatCount(currentFavoriteCount)}</span>
             </div>
 
-            <RecipeCommentsSheet recipeId={recipeId} recipeName={recipeName}>
-                <div className="flex flex-col items-center gap-0.5">
+            <div className="flex flex-col items-center gap-0.5">
+                <RecipeCommentsSheet recipeId={recipeId} recipeName={recipeName}>
                     <Button type="button" variant="ghost" size="icon" aria-label="Otworz komentarze" className="size-8 rounded-full bg-transparent text-white shadow-none hover:bg-white/10 hover:text-white">
                         <MessageCircle className="size-5.5 stroke-[2.5] drop-shadow-[0_1px_3px_rgba(0,0,0,0.9)]" />
                     </Button>
-                    <span className="text-sm font-medium text-white/90">{formatCount(currentCommentCount)}</span>
-                </div>
-            </RecipeCommentsSheet>
+                </RecipeCommentsSheet>
+                <span className="text-sm font-medium text-white/90">{formatCount(currentCommentCount)}</span>
+            </div>
 
             <Button type="button" variant="ghost" size="icon" aria-label="Udostepnij przepis" className="size-8 rounded-full bg-transparent text-white shadow-none hover:bg-white/10 hover:text-white" onClick={shareRecipe}>
                 <Share2 className="size-5.5 stroke-[2.5] drop-shadow-[0_1px_3px_rgba(0,0,0,0.9)]" />

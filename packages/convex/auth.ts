@@ -2,6 +2,7 @@ import {createClient, type GenericCtx} from "@convex-dev/better-auth";
 import {convex, crossDomain} from "@convex-dev/better-auth/plugins";
 import {requireRunMutationCtx} from "@convex-dev/better-auth/utils";
 import {betterAuth, type BetterAuthOptions} from "better-auth/minimal";
+import {createAuthMiddleware} from "better-auth/api";
 import {expo} from "@better-auth/expo";
 
 import {components, internal} from "./_generated/api";
@@ -97,10 +98,10 @@ export const authComponent = createClient<DataModel>(components.betterAuth);
 export const createAuthOptions = (ctx: GenericCtx<DataModel>) =>
     ({
         appName: "GotujTo",
-        // Next.js proxies Better Auth through gotujto.com/api/auth. Prefer the
-        // public application URL so OAuth callbacks create a session on the
-        // same origin that serves the web app.
-        baseURL: process.env.SITE_URL ?? process.env.CONVEX_SITE_URL,
+        baseURL: process.env.CONVEX_SITE_URL,
+        // Expo buduje adres proxy OAuth na podstawie baseURL. Bez niego
+        // Better Auth nie przekazuje sesji po callbacku Google do SecureStore.
+        // Klient WWW korzysta nadal z proxy oraz trustedOrigins poniżej.
         trustedOrigins: [
             ...(process.env.SITE_URL ? [process.env.SITE_URL] : []),
             "http://localhost:3000",
@@ -110,6 +111,7 @@ export const createAuthOptions = (ctx: GenericCtx<DataModel>) =>
             "http://localhost:8081",
             "http://127.0.0.1:8081",
             "mobile://",
+            "mobile://*",
         ],
         secret: process.env.BETTER_AUTH_SECRET,
         database: authComponent.adapter(ctx),
@@ -185,15 +187,81 @@ export const createAuthOptions = (ctx: GenericCtx<DataModel>) =>
                     google: {
                         clientId: googleClientId,
                         clientSecret: googleClientSecret,
+                        // OAuth w aplikacji natywnej musi wrócić bezpośrednio
+                        // do Convex Site, gdzie wtyczka Expo dołącza cookie do
+                        // deep linku. Ten adres jest zarejestrowany w Google.
+                        redirectURI: process.env.CONVEX_SITE_URL
+                            ? `${process.env.CONVEX_SITE_URL}/api/auth/callback/google`
+                            : undefined,
                     },
                 }
                 : undefined,
         plugins: [
-            expo(),
             convex({authConfig}),
+            expo(),
             ...(process.env.SITE_URL
                 ? [crossDomain({siteUrl: process.env.SITE_URL})]
                 : []),
+            // Tymczasowa diagnostyka OAuth dla APK. Loguje wyłącznie booleany,
+            // bez tokenów, adresów e-mail, ciasteczek ani adresów URL.
+            {
+                id: "gotujto-expo-oauth-diagnostics",
+                hooks: {
+                    after: [{
+                        matcher: context => context.path === "/sign-in/social",
+                        handler: createAuthMiddleware(async context => {
+                            const requestHeaders = context.request?.headers ?? context.headers;
+                            const responseHeaders = context.context.responseHeaders;
+
+                            console.warn("Google OAuth diagnostic: sign-in response", {
+                                hasExpoOrigin: Boolean(requestHeaders?.get("expo-origin")),
+                                hasLocation: Boolean(responseHeaders?.get("location")),
+                                hasSetCookie: Boolean(responseHeaders?.get("set-cookie")),
+                            });
+                        }),
+                    }, {
+                        matcher: context => context.path === "/expo-authorization-proxy",
+                        handler: createAuthMiddleware(async context => {
+                            const responseHeaders = context.context.responseHeaders;
+
+                            console.warn("Google OAuth diagnostic: Expo proxy response", {
+                                hasLocation: Boolean(responseHeaders?.get("location")),
+                                hasSetCookie: Boolean(responseHeaders?.get("set-cookie")),
+                            });
+                        }),
+                    }, {
+                        matcher: context => context.path?.startsWith("/callback") ?? false,
+                        handler: createAuthMiddleware(async context => {
+                            const location = context.context.responseHeaders?.get("location");
+                            const setCookie = context.context.responseHeaders?.get("set-cookie");
+                            let redirectProtocol: string | null = null;
+                            let redirectHasCookie = false;
+                            let isTrustedRedirect = false;
+
+                            if (location) {
+                                try {
+                                    const redirectUrl = new URL(location);
+
+                                    redirectProtocol = redirectUrl.protocol;
+                                    redirectHasCookie = redirectUrl.searchParams.has("cookie");
+                                    isTrustedRedirect = context.context.isTrustedOrigin(location);
+                                } catch {
+                                    // Zostawiamy null, jeśli odpowiedź nie zawiera prawidłowego URL.
+                                }
+                            }
+
+                            console.warn("Google OAuth diagnostic: callback response", {
+                                hasLocation: Boolean(location),
+                                hasSetCookie: Boolean(setCookie),
+                                hasSessionCookie: Boolean(setCookie?.includes("session_token")),
+                                redirectProtocol,
+                                redirectHasCookie,
+                                isTrustedRedirect,
+                            });
+                        }),
+                    }],
+                },
+            },
         ],
     }) satisfies BetterAuthOptions;
 

@@ -7,6 +7,8 @@ import {BottomSheetModalProvider} from "@gorhom/bottom-sheet";
 import {SelectedStoresProvider} from "@/providers/SelectedStoresContext";
 import {ToastProvider} from "@/components/ui/toast";
 import {authClient} from "@/lib/auth-client";
+import {TermsAcceptanceGate} from "@/components/Auth/TermsAcceptanceGate";
+import {PushNotificationHandler} from "@/components/Notifications/PushNotificationHandler";
 
 
 
@@ -22,11 +24,14 @@ export default function RootLayout() {
                     client={convex}
                     authClient={authClient as never}
                 >
-                    <SelectedStoresProvider>
-                        <ToastProvider>
-                            <Stack screenOptions={{headerShown: false}}/>
-                        </ToastProvider>
-                    </SelectedStoresProvider>
+                    <TermsAcceptanceGate>
+                        <SelectedStoresProvider>
+                            <ToastProvider>
+                                <PushNotificationHandler />
+                                <Stack screenOptions={{headerShown: false}}/>
+                            </ToastProvider>
+                        </SelectedStoresProvider>
+                    </TermsAcceptanceGate>
                 </ConvexBetterAuthProvider>
             </BottomSheetModalProvider>
         </GestureHandlerRootView>

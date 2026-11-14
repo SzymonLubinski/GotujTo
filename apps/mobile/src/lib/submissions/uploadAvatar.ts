@@ -2,6 +2,7 @@ import {File} from "expo-file-system";
 import {fetch as expoFetch} from "expo/fetch";
 import {Platform} from "react-native";
 import {authClient} from "@/lib/auth-client";
+import {getPublicSiteUrl} from "@/lib/siteUrl";
 import {type SubmissionImageAsset} from "@/lib/submissions/uploadImages";
 
 const allowedTypes = new Set(["image/jpeg", "image/png", "image/webp"]);
@@ -32,7 +33,7 @@ export async function uploadAvatar(image: SubmissionImageAsset, registerUpload: 
     if (!Number.isSafeInteger(size) || size <= 0 || size > 5 * 1024 * 1024) {
         throw new Error("Zdjęcie musi mieć maksymalnie 5 MB.");
     }
-    const siteUrl = process.env.EXPO_PUBLIC_SITE_URL?.replace(/\/$/, "");
+    const siteUrl = getPublicSiteUrl();
     if (!siteUrl) throw new Error("Brakuje adresu strony do przesłania zdjęcia.");
     const cookie = await authClient.getCookie();
     const request = isWeb ? fetch : expoFetch;

@@ -30,7 +30,7 @@ export const metadata: Metadata = {
     },
 
     description:
-        "Znajdź przepisy dopasowane do produktów w lodówce oraz aktualnych promocji.",
+        "Kulinarne inspiracje dopasowane do promocji i Twojej lodówki.",
 
     applicationName: "GotujTo",
 
@@ -40,7 +40,7 @@ export const metadata: Metadata = {
         siteName: "GotujTo",
         title: "GotujTo – przepisy z produktów i promocji",
         description:
-            "Znajdź przepisy dopasowane do produktów w lodówce oraz aktualnych promocji.",
+            "Kulinarne inspiracje dopasowane do promocji i Twojej lodówki.",
         url: "/",
     },
 
@@ -48,7 +48,7 @@ export const metadata: Metadata = {
         card: "summary_large_image",
         title: "GotujTo",
         description:
-            "Przepisy dopasowane do produktów i promocji.",
+            "Kulinarne inspiracje dopasowane do promocji i Twojej lodówki.",
     },
 
     robots: {

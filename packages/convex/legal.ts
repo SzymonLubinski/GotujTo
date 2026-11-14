@@ -8,7 +8,13 @@ export const recordTermsAcceptance = mutation({
         accepted: v.literal(true),
     },
     handler: async ctx => {
-        const user = await authComponent.getAuthUser(ctx);
+        let user;
+
+        try {
+            user = await authComponent.getAuthUser(ctx);
+        } catch {
+            user = null;
+        }
 
         if (!user) {
             throw new ConvexError({
@@ -17,10 +23,12 @@ export const recordTermsAcceptance = mutation({
             });
         }
 
-        const existing = await ctx.db
+        const acceptances = await ctx.db
             .query("termsAcceptances")
             .withIndex("by_userId", index => index.eq("userId", user._id))
-            .unique();
+            .collect();
+        const existing = acceptances.find(acceptance => acceptance.termsVersion === TERMS_VERSION)
+            ?? acceptances.sort((first, second) => second.acceptedAt - first.acceptedAt)[0];
 
         if (existing?.termsVersion === TERMS_VERSION) {
             return;
@@ -44,17 +52,24 @@ export const recordTermsAcceptance = mutation({
 export const hasAcceptedTerms = query({
     args: {},
     handler: async ctx => {
-        const user = await authComponent.getAuthUser(ctx);
+        try {
+            // Po usunieciu konta klient moze jeszcze przez chwile wyslac
+            // poprzedni token. Ta bramka jest tylko odczytem UI, wiec taki
+            // stan traktujemy jak wylogowanie zamiast zwracac Server Error.
+            const user = await authComponent.getAuthUser(ctx);
 
-        if (!user) {
+            if (!user) {
+                return false;
+            }
+
+            const acceptances = await ctx.db
+                .query("termsAcceptances")
+                .withIndex("by_userId", index => index.eq("userId", user._id))
+                .collect();
+
+            return acceptances.some(acceptance => acceptance.termsVersion === TERMS_VERSION);
+        } catch {
             return false;
         }
-
-        const acceptance = await ctx.db
-            .query("termsAcceptances")
-            .withIndex("by_userId", index => index.eq("userId", user._id))
-            .unique();
-
-        return acceptance?.termsVersion === TERMS_VERSION;
     },
 });

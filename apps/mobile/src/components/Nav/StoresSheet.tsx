@@ -76,29 +76,29 @@ export const StoresSheet = forwardRef<BottomSheetModal, StoresSheetProps>(
                                 <Pressable key={store}
                                            className={selected
                                                ? "flex-row items-center justify-between rounded-2xl border border-lime-400 bg-lime-400/10 px-4"
-                                               : "flex-row items-center justify-between rounded-2xl border border-border bg-card px-4"
+                                               : "flex-row items-center justify-between rounded-2xl border border-white/10 bg-white/5 px-4"
                                            }
                                            onPress={() => toggleStore(store)}
                                 >
                                     <View className="flex-row items-center gap-4">
                                         <View className={selected
                                             ? "h-12 w-12 items-center justify-center rounded-xl bg-lime-400"
-                                            : "h-12 w-12 items-center justify-center rounded-xl bg-muted"
+                                            : "h-12 w-12 items-center justify-center rounded-xl bg-white/10"
                                         }>
                                             <Store size={22}
-                                                   color={selected ? "#ffffff" : "#737373"}
+                                                   color={selected ? "#ffffff" : "rgba(255,255,255,0.65)"}
                                                    strokeWidth={2}
                                             />
                                         </View>
 
-                                        <Text className="text-base font-semibold text-foreground">
+                                        <Text className={selected ? "text-base font-semibold text-lime-200" : "text-base font-semibold text-white/90"}>
                                             {store}
                                         </Text>
                                     </View>
 
                                     <View className={selected
                                         ? "h-7 w-7 items-center justify-center rounded-full bg-lime-400"
-                                        : "h-7 w-7 items-center justify-center rounded-full border border-border"
+                                        : "h-7 w-7 items-center justify-center rounded-full border border-white/25 bg-black/20"
                                     }>
                                         {selected && (
                                             <Check size={16}

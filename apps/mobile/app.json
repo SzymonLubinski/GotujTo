@@ -1,6 +1,7 @@
 {
   "expo": {
     "name": "GotujTo",
+    "description": "Kulinarne inspiracje dopasowane do promocji i Twojej lodówki.",
     "slug": "mobile",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -18,7 +19,10 @@
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false,
-      "package": "com.szymon_lubinski.mobile"
+      "package": "com.gotujto.app",
+      "permissions": [
+        "android.permission.RECORD_AUDIO"
+      ]
     },
     "web": {
       "output": "static",
@@ -36,6 +40,7 @@
       ],
       "expo-image",
       "expo-image-picker",
+      "expo-notifications",
       "expo-video",
       "expo-secure-store",
       "expo-font",
@@ -48,8 +53,9 @@
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "b7f8d3c8-a5b3-4a3c-8aa9-a60bcd028a2f"
+        "projectId": "d1a78164-e810-4a52-b39e-08d48eacd01c"
       }
-    }
+    },
+    "owner": "szymson99"
   }
 }

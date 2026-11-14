@@ -20,12 +20,12 @@ async function requireUser(ctx: AuthenticatedCtx) {
         });
     }
 
-    const termsAcceptance = await ctx.db
+    const termsAcceptances = await ctx.db
         .query("termsAcceptances")
         .withIndex("by_userId", index => index.eq("userId", user._id))
-        .unique();
+        .collect();
 
-    if (termsAcceptance?.termsVersion !== TERMS_VERSION) {
+    if (!termsAcceptances.some(acceptance => acceptance.termsVersion === TERMS_VERSION)) {
         throw new ConvexError({
             code: "TERMS_NOT_ACCEPTED",
             message: "Zaakceptuj Regulamin, aby korzystac z funkcji konta.",
@@ -848,6 +848,15 @@ export const toggleFavoriteRecipe = mutation({
             favoriteCount: existingFavoriteCount + 1,
         });
 
+        if (recipe.authorUserId && recipe.authorUserId !== user._id) {
+            await ctx.scheduler.runAfter(0, internal.notifications.sendToUser, {
+                userId: recipe.authorUserId,
+                title: "Nowe polubienie przepisu",
+                body: `Ktoś dodał „${recipe.name}” do ulubionych.`,
+                path: `/recipe/${recipe._id}`,
+            });
+        }
+
         return true;
     },
 });
@@ -903,6 +912,15 @@ export const addRecipeComment = mutation({
         await ctx.db.patch(recipe._id, {
             commentCount: existingCommentCount + 1,
         });
+
+        if (recipe.authorUserId && recipe.authorUserId !== user._id) {
+            await ctx.scheduler.runAfter(0, internal.notifications.sendToUser, {
+                userId: recipe.authorUserId,
+                title: "Nowy komentarz",
+                body: `Ktoś skomentował przepis „${recipe.name}”.`,
+                path: `/recipe/${recipe._id}`,
+            });
+        }
 
         return commentId;
     },
@@ -1075,6 +1093,15 @@ export const toggleFavoriteBlog = mutation({
             favoriteCount: existingFavoriteCount + 1,
         });
 
+        if (blog.authorUserId && blog.authorUserId !== user._id) {
+            await ctx.scheduler.runAfter(0, internal.notifications.sendToUser, {
+                userId: blog.authorUserId,
+                title: "Nowe polubienie posta",
+                body: `Ktoś dodał „${blog.title}” do ulubionych.`,
+                path: `/blog/${blog._id}`,
+            });
+        }
+
         return true;
     },
 });
@@ -1129,6 +1156,15 @@ export const addBlogComment = mutation({
         await ctx.db.patch(blog._id, {
             commentCount: existingCommentCount + 1,
         });
+
+        if (blog.authorUserId && blog.authorUserId !== user._id) {
+            await ctx.scheduler.runAfter(0, internal.notifications.sendToUser, {
+                userId: blog.authorUserId,
+                title: "Nowy komentarz",
+                body: `Ktoś skomentował post „${blog.title}”.`,
+                path: `/blog/${blog._id}`,
+            });
+        }
 
         return commentId;
     },
@@ -2228,6 +2264,13 @@ export const approveRecipeSubmission = mutation({
             },
         );
 
+        await ctx.scheduler.runAfter(0, internal.notifications.sendToUser, {
+            userId: submission.authorId,
+            title: "Przepis zatwierdzony",
+            body: `Twój przepis „${recipeData.name}” jest już opublikowany.`,
+            path: `/recipe/${recipeId}`,
+        });
+
         return recipeId;
     },
 });
@@ -2387,6 +2430,13 @@ export const approveBlogSubmission = mutation({
             reviewedBlogId: blogId,
             reviewedAt: now,
             updatedAt: now,
+        });
+
+        await ctx.scheduler.runAfter(0, internal.notifications.sendToUser, {
+            userId: submission.authorId,
+            title: "Post zatwierdzony",
+            body: `Twój post „${submission.title}” jest już opublikowany.`,
+            path: `/blog/${blogId}`,
         });
 
         return blogId;

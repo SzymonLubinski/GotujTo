@@ -60,14 +60,14 @@ export function BlogShortActions({blogId, blogTitle, favoriteCount, commentCount
                 <span className="text-xs font-medium text-white/90">{formatCount(currentFavoriteCount)}</span>
             </div>
 
-            <BlogCommentsSheet blogId={blogId} blogTitle={blogTitle}>
-                <div className="flex flex-col items-center gap-0.5">
+            <div className="flex flex-col items-center gap-0.5">
+                <BlogCommentsSheet blogId={blogId} blogTitle={blogTitle}>
                     <Button type="button" variant="ghost" size="icon" aria-label="Otwórz komentarze" className="size-8 rounded-full bg-transparent text-white shadow-none hover:bg-white/10 hover:text-white">
                         <MessageCircle className="size-5.5 stroke-[2.5] drop-shadow-[0_1px_3px_rgba(0,0,0,0.9)]" />
                     </Button>
-                    <span className="text-xs font-medium text-white/90">{formatCount(currentCommentCount)}</span>
-                </div>
-            </BlogCommentsSheet>
+                </BlogCommentsSheet>
+                <span className="text-xs font-medium text-white/90">{formatCount(currentCommentCount)}</span>
+            </div>
 
             <Button type="button" variant="ghost" size="icon" aria-label="Udostępnij wpis" className="size-8 rounded-full bg-transparent text-white shadow-none hover:bg-white/10 hover:text-white" onClick={shareBlog}>
                 <Share2 className="size-5.5 stroke-[2.5] drop-shadow-[0_1px_3px_rgba(0,0,0,0.9)]" />

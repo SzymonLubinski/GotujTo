@@ -8,6 +8,7 @@ import {api} from "@gotujto/convex/_generated/api";
 import type {Id} from "@gotujto/convex/_generated/dataModel";
 import {Text} from "@/components/ui/text";
 import {useToast} from "@/components/ui/toast";
+import {getPublicSiteUrl} from "@/lib/siteUrl";
 
 type ContentDetailActionsProps =
     | {target: "recipe"; contentId: Id<"recipes">; title: string}
@@ -64,7 +65,7 @@ export default function ContentDetailActions(props: ContentDetailActionsProps) {
     }
 
     async function handleShare() {
-        const siteUrl = process.env.EXPO_PUBLIC_SITE_URL?.replace(/\/$/, "");
+        const siteUrl = getPublicSiteUrl();
         const path = props.target === "recipe"
             ? `/recipe/${props.contentId}`
             : `/blog/${props.contentId}`;
