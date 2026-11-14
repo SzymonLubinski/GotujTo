@@ -1,11 +1,10 @@
 import {useRef} from "react";
 import {Search, SlidersHorizontal} from "lucide-react-native";
-import {Pressable, View} from "react-native";
+import {Image, Pressable, View} from "react-native";
 import {useRouter} from "expo-router";
 import {BottomSheetModal} from "@gorhom/bottom-sheet";
 import {useSafeAreaInsets} from "react-native-safe-area-context";
 import {Button} from "@/components/ui/button";
-import {Text} from "@/components/ui/text";
 import {StoresSheet} from "@/components/Nav/StoresSheet";
 import {type StoresT} from "@gotujto/shared/data/stableData";
 
@@ -25,9 +24,12 @@ export default function HomeHeader({selectedStores, onSelectedStoresChange}: Hom
             <View className="absolute left-0 right-0 z-50 flex-row items-center justify-between px-5"
                   style={{paddingTop: insets.top + 12}}
             >
-                <Text className="text-3xl font-black italic tracking-tight text-white">
-                    Gotuj<Text className="text-lime-300">To</Text>
-                </Text>
+                <Image
+                    source={require("../../../assets/images/brand/gotujto-logo-dark.png")}
+                    accessibilityLabel="GotujTo"
+                    resizeMode="contain"
+                    style={{width: 126, height: 38}}
+                />
 
                 <View className="flex-row items-center gap-2">
                     <Pressable

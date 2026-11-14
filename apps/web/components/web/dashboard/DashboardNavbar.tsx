@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import {usePathname} from "next/navigation";
 import {BadgePercent, BookOpenCheck, ChefHat, ClipboardCheck, CookingPot, Flag, LayoutDashboard, Menu, PackagePlus, ScrollText, type LucideIcon} from "lucide-react";
 
@@ -55,9 +56,11 @@ export default function DashboardNavbar() {
 
     return <header className="sticky top-0 z-50 border-b border-border/70 bg-background/90 backdrop-blur">
         <div className="mx-auto flex min-h-16 w-full max-w-7xl items-center gap-3 px-4 sm:px-6">
-            <Link href="/admin" className="flex shrink-0 items-center gap-2 font-bold tracking-tight">
-                <span className="flex size-8 items-center justify-center rounded-lg bg-lime-400 text-black"><ChefHat className="size-4" /></span>
-                <span className="text-lg">Gotuj<span className="text-lime-500">To</span></span>
+            <Link href="/admin" className="flex shrink-0 items-center gap-2 font-bold tracking-tight" aria-label="GotujTo - panel administratora">
+                <span className="relative block h-8 w-28">
+                    <Image src="/images/brand/gotujto-logo-light.png" alt="GotujTo" fill sizes="112px" className="object-contain dark:hidden" priority />
+                    <Image src="/images/brand/gotujto-logo-dark.png" alt="" aria-hidden fill sizes="112px" className="hidden object-contain dark:block" priority />
+                </span>
                 <span className="hidden rounded-full bg-muted px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground sm:inline">Admin</span>
             </Link>
 

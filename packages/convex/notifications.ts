@@ -1,8 +1,10 @@
 import {ConvexError, v} from "convex/values";
 import {action, internalAction, internalMutation, internalQuery, mutation, query} from "./_generated/server";
-import {internal} from "./_generated/api";
+import {api, internal} from "./_generated/api";
 import {authComponent} from "./auth";
 import {requireAdmin} from "./lib/requireAdmin";
+import {stores} from "../shared/data/stableData";
+import {getIngredientLabel} from "../shared/functions/getIngredientLabel";
 
 async function requireUser(ctx: Parameters<typeof authComponent.getAuthUser>[0]) {
     const user = await authComponent.getAuthUser(ctx);
@@ -220,35 +222,6 @@ export const getPromotionHighlight = internalQuery({
     },
 });
 
-export const getPromotionHighlights = internalQuery({
-    args: {},
-    handler: async ctx => {
-        const now = Date.now();
-        const activeDeals = (await ctx.db.query("deals").collect())
-            .filter(deal => deal.startsAt <= now && deal.endsAt >= now)
-            .slice(0, 100);
-        const seenRecipeIds = new Set<string>();
-        const highlights: {recipeId: string; name: string}[] = [];
-
-        for (const deal of activeDeals) {
-            if (highlights.length >= 3) break;
-            const ingredient = await ctx.db
-                .query("ingredients")
-                .withIndex("by_productId", index => index.eq("productId", deal.productId))
-                .first();
-            if (!ingredient || seenRecipeIds.has(ingredient.recipeId)) continue;
-
-            const recipe = await ctx.db.get(ingredient.recipeId);
-            if (!recipe) continue;
-
-            seenRecipeIds.add(recipe._id);
-            highlights.push({recipeId: recipe._id, name: recipe.name});
-        }
-
-        return highlights;
-    },
-});
-
 export const getNewsletterRecipients = internalQuery({
     args: {},
     handler: async ctx => await ctx.db.query("newsletterRecipients").collect(),
@@ -272,6 +245,15 @@ function escapeHtml(value: string) {
     })[character] ?? character);
 }
 
+function formatSavings(value: number) {
+    return new Intl.NumberFormat("pl-PL", {
+        style: "currency",
+        currency: "PLN",
+        minimumFractionDigits: value % 1 === 0 ? 0 : 2,
+        maximumFractionDigits: 2,
+    }).format(value);
+}
+
 export const sendPromotionNewsletter = internalAction({
     args: {
         recipients: v.optional(v.array(v.object({
@@ -290,13 +272,30 @@ export const sendPromotionNewsletter = internalAction({
             return {sent: 0, failed: 0};
         }
 
-        const highlights = await ctx.runQuery(internal.notifications.getPromotionHighlights, {});
+        const highlights = await ctx.runQuery(api.recipes.getRecipesByDeals, {
+            stores: [...stores],
+            limit: 3,
+        });
         const recipients = args.recipients ?? await ctx.runQuery(internal.notifications.getNewsletterRecipients, {});
 
         if (!highlights.length || !recipients.length) return {sent: 0, failed: 0};
 
-        const recipeRows = highlights.map(recipe => `<li style="margin:0 0 12px"><a href="https://gotujto.com/recipe/${recipe.recipeId}" style="color:#65a30d;font-weight:700">${escapeHtml(recipe.name)}</a></li>`).join("");
-        const textRecipes = highlights.map(recipe => `- ${recipe.name}: https://gotujto.com/recipe/${recipe.recipeId}`).join("\n");
+        const recipeRows = highlights.map(item => {
+            const recipeUrl = `https://gotujto.com/recipe/${item.recipe._id}`;
+            const imageUrl = item.recipe.images[0];
+            const savings = item.thrift > 0
+                ? `<p style="margin:0 0 8px;color:#65a30d;font-weight:700">Taniej do ${escapeHtml(formatSavings(item.thrift))}!</p>`
+                : "";
+            const image = imageUrl
+                ? `<img src="${escapeHtml(imageUrl)}" alt="${escapeHtml(item.recipe.name)}" width="560" style="display:block;width:100%;max-width:560px;height:180px;object-fit:cover;border-radius:12px;margin:0 0 14px" />`
+                : "";
+
+            return `<li style="list-style:none;margin:0 0 20px;padding:18px;border:1px solid #e4e4e7;border-radius:16px">${image}<a href="${recipeUrl}" style="color:#18181b;font-size:18px;font-weight:700;text-decoration:none">${escapeHtml(item.recipe.name)}</a><p style="margin:10px 0 8px;color:#52525b">W promocji: ${item.dealIngredientCount} ${getIngredientLabel(item.dealIngredientCount)}</p>${savings}<a href="${recipeUrl}" style="color:#65a30d;font-weight:700">Zobacz przepis</a></li>`;
+        }).join("");
+        const textRecipes = highlights.map(item => {
+            const savings = item.thrift > 0 ? `, Taniej do ${formatSavings(item.thrift)}!` : "";
+            return `- ${item.recipe.name} (W promocji: ${item.dealIngredientCount} ${getIngredientLabel(item.dealIngredientCount)}${savings})\n  https://gotujto.com/recipe/${item.recipe._id}`;
+        }).join("\n");
         const results = await Promise.all(recipients.map(async recipient => {
             const unsubscribeUrl = `${siteUrl}/newsletter/unsubscribe?token=${encodeURIComponent(recipient.unsubscribeToken)}`;
             const greeting = recipient.name ? `Cześć ${escapeHtml(recipient.name)}!` : "Cześć!";
@@ -310,8 +309,8 @@ export const sendPromotionNewsletter = internalAction({
                     sender: {name: "GotujTo", email: from},
                     to: [{email: recipient.email, ...(recipient.name ? {name: recipient.name} : {})}],
                     subject: "Pomysły z aktualnych promocji | GotujTo",
-                    htmlContent: `<main style="font-family:Arial,sans-serif;max-width:600px;margin:auto;color:#18181b"><h1 style="color:#65a30d">GotujTo</h1><p>${greeting}</p><p>Wybraliśmy przepisy, których składniki są teraz w promocji.</p><ol>${recipeRows}</ol><p style="margin-top:28px;font-size:12px;color:#71717a"><a href="${unsubscribeUrl}">Wypisz się z newslettera</a></p></main>`,
-                    textContent: `${recipient.name ? `Cześć ${recipient.name}!` : "Cześć!"}\n\nWybraliśmy przepisy, których składniki są teraz w promocji:\n${textRecipes}\n\nWypisz się: ${unsubscribeUrl}`,
+                    htmlContent: `<main style="font-family:Arial,sans-serif;max-width:600px;margin:auto;color:#18181b"><img src="https://gotujto.com/images/brand/gotujto-logo-light.png" alt="GotujTo" width="180" style="display:block;width:180px;height:auto;margin:0 0 24px" /><p>${greeting}</p><p>Wybraliśmy przepisy, których składniki są teraz w promocji.</p><ul style="padding:0;margin:24px 0">${recipeRows}</ul><p style="margin-top:28px;font-size:12px;color:#71717a">Jeśli nie chcesz już otrzymywać takich wiadomości, możesz <a href="${unsubscribeUrl}" style="color:#65a30d">zrezygnować z newslettera</a>.</p></main>`,
+                    textContent: `${recipient.name ? `Cześć ${recipient.name}!` : "Cześć!"}\n\nWybraliśmy przepisy, których składniki są teraz w promocji:\n${textRecipes}\n\nJeśli nie chcesz już otrzymywać takich wiadomości, możesz zrezygnować z newslettera: ${unsubscribeUrl}`,
                     headers: {"List-Unsubscribe": `<${unsubscribeUrl}>`},
                 }),
             });

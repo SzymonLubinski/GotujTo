@@ -2,6 +2,7 @@
 
 import type { FormEvent } from "react"
 import Link from "next/link"
+import Image from "next/image"
 import { ArrowLeft, Search, X } from "lucide-react"
 import { useRouter } from "next/navigation"
 
@@ -21,8 +22,15 @@ export default function SearchForm({ query, onQueryChange }: SearchFormProps) {
         <header className="shrink-0 border-b border-white/10 bg-black/95 px-4 pb-4 pt-[max(1rem,env(safe-area-inset-top))] backdrop-blur-xl">
             <div className="mx-auto w-full max-w-3xl">
                 <div className="mb-4 flex items-center justify-between">
-                    <Link href="/" className="text-xl font-black tracking-tight text-white">
-                        Gotuj<span className="text-lime-400">To</span>
+                    <Link href="/" className="shrink-0" aria-label="GotujTo - strona główna">
+                        <Image
+                            src="/images/brand/gotujto-logo-dark.png"
+                            alt="GotujTo"
+                            width={160}
+                            height={48}
+                            priority
+                            className="h-8 w-auto"
+                        />
                     </Link>
                     <span className="text-sm text-white/50">Wyszukiwarka przepisów</span>
                 </div>

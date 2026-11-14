@@ -1,5 +1,5 @@
 import {type ReactNode, useEffect, useState} from "react";
-import {ActivityIndicator, Image, Pressable, ScrollView, Switch, TextInput, View} from "react-native";
+import {ActivityIndicator, Image, Pressable, ScrollView, TextInput, View} from "react-native";
 import {useRouter} from "expo-router";
 import {useConvexAuth, useMutation, useQuery} from "convex/react";
 import {AlertTriangle, Bell, BookOpenText, ChefHat, Heart, LockKeyhole, LogIn, LogOut, Mail, Plus, Refrigerator, Settings2, Trash2, UserPlus, UserRound} from "lucide-react-native";
@@ -300,7 +300,7 @@ function SettingsTab({email, image, onSignOut}: {email: string; image?: string |
 }
 
 function NotificationOption({label, description, value, disabled, onValueChange}: {label: string; description: string; value: boolean; disabled: boolean; onValueChange: (value: boolean) => void}) {
-    return <View className="flex-row items-start gap-4 rounded-xl border border-white/10 bg-black/20 p-4"><View className="flex-1"><Text className="text-base font-semibold text-white">{label}</Text><Text className="mt-1 text-sm leading-5 text-white/60">{description}</Text></View><Switch accessibilityLabel={label} value={value} disabled={disabled} onValueChange={onValueChange} trackColor={{false: "#3f3f46", true: "#84cc16"}} thumbColor="#ffffff" /></View>;
+    return <View className="flex-row items-start gap-4 rounded-xl border border-white/10 bg-black/20 p-4"><View className="flex-1"><Text className="text-base font-semibold text-white">{label}</Text><Text className="mt-1 text-sm leading-5 text-white/60">{description}</Text></View><Pressable accessibilityRole="switch" accessibilityLabel={label} accessibilityState={{checked: value, disabled}} disabled={disabled} onPress={() => onValueChange(!value)} className={disabled ? "mt-1 h-8 w-14 rounded-full bg-zinc-700 p-1 opacity-45" : value ? "mt-1 h-8 w-14 rounded-full bg-lime-400 p-1 active:bg-lime-300" : "mt-1 h-8 w-14 rounded-full border border-white/15 bg-zinc-700 p-1 active:bg-zinc-600"}><View className={value ? "size-6 translate-x-6 rounded-full bg-neutral-950" : "size-6 translate-x-0 rounded-full bg-zinc-100"} /></Pressable></View>;
 }
 
 function SettingsCard({icon, title, description, children}: {icon: ReactNode; title: string; description: string; children: ReactNode}) {

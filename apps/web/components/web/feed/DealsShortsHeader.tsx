@@ -1,6 +1,7 @@
 "use client"
 
 import Link from "next/link"
+import Image from "next/image"
 import { LogIn, Search, Store, UserRound } from "lucide-react"
 import {authClient} from "@/lib/auth-client"
 
@@ -16,8 +17,15 @@ export default function DealsShortsHeader({ onStoresClick }: DealsNavProps) {
     return (
         <header className="pointer-events-none fixed inset-x-0 top-0 z-50 flex justify-center">
             <nav className="pointer-events-auto flex h-20 w-full max-w-md items-center justify-between bg-linear-to-b from-black/85 via-black/45 to-transparent px-4 pb-2 pt-[env(safe-area-inset-top)] text-white">
-                <Link href="/" className="shrink-0 text-2xl font-black tracking-tight">
-                    Gotuj<span className="text-lime-400">To</span>
+                <Link href="/" className="shrink-0" aria-label="GotujTo - strona główna">
+                    <Image
+                        src="/images/brand/gotujto-logo-dark.png"
+                        alt="GotujTo"
+                        width={180}
+                        height={54}
+                        priority
+                        className="h-9 w-auto"
+                    />
                 </Link>
 
                 <div className="flex items-center gap-2">
